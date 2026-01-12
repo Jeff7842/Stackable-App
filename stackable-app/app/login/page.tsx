@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from 'next/image';
 
-function UseOtp(length = 6) {
+function UseOtp(length = 5) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
   const inputsRef = useRef<HTMLInputElement[]>([]);
 
@@ -248,7 +248,7 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
     e.preventDefault();
     const otpValue = getOtp();
 
-    if (otpValue.length !== 6) {
+    if (otpValue.length !== 5) {
       alert("Incomplete OTP");
       return;
     }
@@ -283,7 +283,7 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
           Enter verification code
         </h2>
         <p className="mt-2 text-sm text-gray-600">
-          Enter the 6-digit code sent to your email and phone number
+          Enter the 5-digit code sent to your email and phone number
         </p>
       </div>
 
