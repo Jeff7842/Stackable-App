@@ -4,20 +4,32 @@ import "./globals.css";
 import { Poppins } from 'next/font/google';
 import { Inter } from 'next/font/google';
 import { ABeeZee } from 'next/font/google';
+import Acumin from 'next/font/local';
+
+const acumin = Acumin({
+  src: [
+    { path: './fonts/Acumin-Variable-Concept.ttf', weight: '200', style: 'thin' },
+    { path: './fonts/Acumin-Variable-Concept.ttf', weight: '400', style: 'normal' },
+    { path: './fonts/Acumin-Variable-Concept.ttf', weight: '700', style: 'bold' },
+  ],
+  display: 'swap',
+  variable: '--font-Acumin', // Define a CSS variable name
+});
+
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
   display: 'swap',
-})
+});
 
 const Abeezee = ABeeZee({
   subsets: ['latin'],
   weight: ['400'],
   variable: '--font-ABeeZee',
   display: 'swap',
-})
+});
 
 const inter = Inter({
   subsets: ['latin'],
@@ -49,7 +61,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased`}
       >
         {children}
       </body>

@@ -5,7 +5,16 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   experimental:{
     turbopackFileSystemCacheForDev:true,
-  }
+  },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ceuppatdypoutimqdglm.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
+  },
 };
 
 export default nextConfig;
