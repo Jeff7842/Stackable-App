@@ -65,7 +65,7 @@ const page = () => {
   handleKeyDown,
   handlePaste,
   getOtp,
-} = UseOtp(6);
+} = UseOtp(5);
 
 // eslint-disable-next-line react-hooks/rules-of-hooks
 const [isOtpOpen, setIsOtpOpen] = useState(false);
