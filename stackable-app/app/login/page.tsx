@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from 'next/image';
 import { useToast } from "../../components/toast/ToastProvider";
 
+
 function UseOtp(length = 5) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
   const inputsRef = useRef<HTMLInputElement[]>([]);
@@ -47,6 +48,7 @@ function UseOtp(length = 5) {
     inputsRef.current = [];
   };
   
+  
 
   return {
     otp,
@@ -83,6 +85,44 @@ const handleCloseOtp = () => {
   setIsOtpOpen(false);
 };
 
+// eslint-disable-next-line react-hooks/rules-of-hooks
+const [email, setEmail] = useState("");
+// eslint-disable-next-line react-hooks/rules-of-hooks
+const [password, setPassword] = useState("");
+// eslint-disable-next-line react-hooks/rules-of-hooks
+const [authError, setAuthError] = useState(false);
+
+
+
+const handleContinue = () => {
+  // replace this with API / auth call later
+  const credentialsAreValid =
+    email === "admin@stackable.com" && password === "123456";
+
+  if (!credentialsAreValid) {
+    setAuthError(true);
+
+    
+    return;
+  }
+
+  // ✅ success → proceed to OTP
+  setIsOtpOpen(true);
+};
+
+const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setEmail(e.target.value);
+  if (authError) setAuthError(false);
+};
+
+const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  setPassword(e.target.value);
+  if (authError) setAuthError(false);
+};
+
+
+
+
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
   {/* LEFT SIDE – IMAGE + OVERLAY */}
@@ -107,7 +147,7 @@ const handleCloseOtp = () => {
         Built for better <br />
         <span className="text-[#F9B233]">learning</span>
       </h2>
-      <div className="absolute z-10 px-10   top-[-160px] left-[90px] pointer-events-none">
+      <div className="absolute z-10 px-10 top-[-160px] left-[100px] pointer-events-none">
       <Image src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Eclipse.png" alt=""  width={400}
       height={400} />
     </div>
@@ -138,27 +178,39 @@ const handleCloseOtp = () => {
             Sign in if you already have an account
           </p>
         </div>
-
+{authError && (
+  <div className="mb-4 rounded-lg border text-center border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
+    Invalid email address or password. Try again.
+  </div>
+)}
         {/* Email */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Email address</label>
+        <div className={`space-y-1 ${authError ? "animate-shake" : ""}`}>
+          <label className={`text-sm font-medium ${authError ? "text-red-600" : "text-black"}`}>Email address</label>
+          <div className="relative w-full">
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`icon icon-tabler icons-tabler-outline icon-tabler-user text-gray-600 peer-invalid:text-red-500 absolute left-3 top-1/2 -translate-y-1/2 ${authError ? "text-red-500" : "text-gray-600"}`}><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M8 7a4 4 0 1 0 8 0a4 4 0 0 0 -8 0" /><path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" /></svg>
           <input
             type="email"
+            onChange={(e) => onEmailChange(e)}
             placeholder="stackable@example.com"
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2"
+            className={`w-full rounded-lg border indent-6 border-gray-300 px-4 py-2 focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2
+            ${authError ? "border-red-500 border-2 text-red-600" : "border-gray-300"}`}
             required
           />
+          </div>
         </div>
 
         {/* Password */}
-        <div className="space-y-1">
-          <label className="text-sm font-medium">Password</label>
+        <div className={`space-y-1 ${authError ? "animate-shake" : ""}`}>
+          <label className={`text-sm font-medium ${authError ? "text-red-600" : "text-black"}`}>Password</label>
           <div className="relative w-full">
+            <svg  xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" className={`icon icon-tabler icons-tabler-outline icon-tabler-lock text-gray-600  invalid:text-red-600 absolute left-3 top-1/2 -translate-y-1/2  ${authError ? "text-red-500" : "text-gray-600"}`}><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6" /><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /><path d="M8 11v-4a4 4 0 1 1 8 0v4" /></svg>
   <input
     type="password"
     placeholder="••••••••••"
-    className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10
-                focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2"
+    onChange={(e) => onPasswordChange(e)}
+    className={`w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 indent-6
+                focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2
+                ${authError ? "border-red-500 border-2 text-red-600" : "border-gray-300"}`}
                required
   />
 
@@ -181,9 +233,9 @@ const handleCloseOtp = () => {
 
         {/* Submit */}
         <button
-        onClick={() => setIsOtpOpen(true)}
+        onClick={handleContinue}
           type="button"
-          className="w-full rounded-lg text-[18px] text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] hover:text-[#7D6939] transition"
+          className="w-full rounded-lg text-[18px] cursor-pointer text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] active:text-[#7D6939] active:bg-[#ffefae] active:scale-[1.0]  transition-300"
         >
           Continue
         </button>
@@ -200,7 +252,7 @@ const handleCloseOtp = () => {
         {/* Google button */}
         <button
           type="button"
-          className="flex w-full h-[40px] items-center justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white  hover:scale-[1.02] transition"
+          className="flex w-full h-[40px] items-center cursor-pointer justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white active:bg-black active:text-[#ebebebf1]  hover:scale-[1.02] active:scale-[1.0]  transition-300"
         >
           <Image
             src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/google.png"
@@ -350,7 +402,7 @@ const handleCloseOtp = () => {
         type="submit"
         className="w-full rounded-xl bg-[#FFF4C2] py-3 text-lg font-medium text-black
                    hover:bg-[#F9E38C] hover:scale-[1.02] transform
-    transition-transform duration-200"
+    transition-transform duration-200 active:bg-[#ffefae] active:scale-[1] active:text-[#7D6939]"
       >
         Verify OTP
       </button>

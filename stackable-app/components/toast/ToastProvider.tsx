@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState , useRef } from "react";
 import Toast from "./Toast";
 
 type ToastType = "error" | "success" | "info" | "warning";
@@ -18,17 +18,25 @@ const ToastContext = createContext<any>(null);
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
 
-  let toastCounter = 0;
+  const toastCounter = useRef(0);
 
-const id = `toast-${++toastCounter}`;
+const MAX_TOASTS = 7;
 
   const showToast = (toast: Omit<ToastData, "id">) => {
-    
-    setToasts((prev) => [...prev, { ...toast, id }]);
+    const id = `toast-${++toastCounter.current}`;
+
+    setToasts(prev => {
+    // If max reached, drop the oldest toast (FIFO)
+    const next = prev.length >= MAX_TOASTS
+      ? prev.slice(1)
+      : prev;
+
+    return [...next, { ...toast, id }];
+  });
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 4000);
+    }, 5000);
   };
 
   const removeToast = (id: string) => {
