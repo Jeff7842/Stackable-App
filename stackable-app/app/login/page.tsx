@@ -119,7 +119,7 @@ const page = () => {
 function EyeOpen() {
   return (<svg
     className={` hover:text-gray-500 transition cursor-pointer ${
-                    authError ? "text-red-500" : "text-[#f1c21a]"
+                    authError ? "text-red-500" : "text-[#ECB938]"
                   }`}
       xmlns="http://www.w3.org/2000/svg"
       width={22}
@@ -142,7 +142,7 @@ function EyeClosed() {
   return (
     <svg
                   className={` hover:text-gray-500 transition cursor-pointer  ${
-                    authError ? "text-red-500" : "text-[#f1c21a]"
+                    authError ? "text-red-500" : "text-[#ECB938]"
                   }`}
                   aria-hidden="true"
                   xmlns="http://www.w3.org/2000/svg"
@@ -179,7 +179,7 @@ function EyeClosed() {
         <div className="relative z-10 px-10 text-center text-white mb-116 w-full">
           <h2 className="text-[86px] font-normal leading-tight font-image">
             Built for better <br />
-            <span className="text-[#F9B233]">learning</span>
+            <span className="text-[#ECB938]">learning</span>
           </h2>
           <div className="absolute inset-0 z-10 flex items-center justify-center -translate-y-1/4 pointer-events-none">
             <Image
@@ -257,8 +257,8 @@ function EyeClosed() {
                   className={`w-full rounded-lg border indent-6 border-gray-300 px-4 py-2 focus:ring-1  focus:outline-2 focus:outline-offset-2
             ${
               authError
-                ? "border-red-500 border-2 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
-                : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffed65be]"
+                ? "border-red-500 border-1 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
+                : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be]"
             }`}
                   required
                 />
@@ -302,8 +302,8 @@ function EyeClosed() {
                 focus:ring-1 focus:outline-2 focus:outline-offset-2
                 ${
                   authError
-                    ? "border-red-500 border-2 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
-                    : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffed65be]"
+                    ? "border-red-500 border-1 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
+                    : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be]"
                 }`}
                   required
                 />
@@ -327,6 +327,15 @@ function EyeClosed() {
             >
               Continue
             </button>
+
+            <p className="text-center text-sm mt-[-8px] mb-[-10px]">
+              <Link
+                href="/forgot-passoword"
+                className="text-[#ECB938] hover:text-[#F9E38C] font-medium hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </p>
 
             {/* Divider */}
             <div className="flex items-center my-6">
@@ -359,7 +368,7 @@ function EyeClosed() {
               Don&apos;t have access?{" "}
               <Link
                 href="/request-demo"
-                className="text-[#F9B233] font-medium hover:underline"
+                className="text-[#ECB938] font-medium hover:underline"
               >
                 Request demo
               </Link>
