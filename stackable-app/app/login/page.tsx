@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "../../components/toast/ToastProvider";
@@ -52,7 +52,8 @@ function UseOtp(length = 5) {
     inputsRef.current = [];
   };
   
-
+const generatePageKey = () =>
+  `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return {
     otp,
     inputsRef,
@@ -61,6 +62,7 @@ function UseOtp(length = 5) {
     handlePaste,
     getOtp,
     resetOtp,
+    generatePageKey,
   };
 }
 
@@ -73,22 +75,23 @@ const page = () => {
     handlePaste,
     getOtp,
     resetOtp,
+    generatePageKey,
   } = UseOtp(5);
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+
   const [isOtpOpen, setIsOtpOpen] = useState(false);
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+
   const { showToast } = useToast();
   const handleCloseOtp = () => {
     resetOtp();
     setIsOtpOpen(false);
   };
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+
   const [email, setEmail] = useState("");
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+
   const [password, setPassword] = useState("");
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+
   const [authError, setAuthError] = useState(false);
 
   const handleContinue = () => {
@@ -116,7 +119,7 @@ const page = () => {
     if (authError) setAuthError(false);
   };
 
-  // eslint-disable-next-line react-hooks/rules-of-hooks
+
   const [visible, setVisible] = useState(false);
 function EyeOpen() {
   return (<svg
@@ -166,9 +169,11 @@ const [showWelcome, setShowWelcome] = useState(false);
 
 // mock user – later replace from API / JWT
 const firstName = "Jeff";
+const [pageKey, setPageKey] = useState(() => generatePageKey());
+
 
   return (
-    <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
+    <div key={pageKey} className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
       {/* LEFT SIDE – IMAGE + OVERLAY */}
       <div className="relative hidden md:flex items-center justify-center bg-[#394245] rounded-[12px]">
         {/* Background image */}
@@ -472,17 +477,27 @@ const firstName = "Jeff";
   resetOtp();
 
   // Step 1: Loader
+  setPageKey(generatePageKey());
   setIsAuthTransitioning(true);
+
+
+
 
   // Step 2: Welcome screen
   setTimeout(() => {
     setShowWelcome(true);
-  }, 1200);
+  }, 1800);
 
   // Step 3: Redirect
   setTimeout(() => {
-    router.push("https://dashboard.kyfaru.com");
-  }, 2600);
+    window.open( "https://dashboard.kyfaru.com", "_blank", "noopener,noreferrer" );
+}, 3600);
+ 
+setTimeout(() =>{
+  router.replace("/login");
+  setIsAuthTransitioning(false);
+  setShowWelcome(false);
+}, 5000);
                   }
 
                   console.log("OTP Submitted:", otpValue);
@@ -585,7 +600,7 @@ const firstName = "Jeff";
 
 
 {showWelcome && (
-  <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#F7F9E2]">
+  <div className="fixed inset-0 z-[110] flex items-center text-center justify-center bg-[#F7F9E2]">
     <h1 className="text-[64px] font-bold text-black">
       Welcome back{" "}
       <span className="text-[#30693E]">{firstName}!</span>
