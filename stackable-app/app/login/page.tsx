@@ -126,7 +126,7 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
   {/* LEFT SIDE – IMAGE + OVERLAY */}
-  <div className="relative hidden md:flex items-center justify-center bg-[#515244] rounded-[12px]">
+  <div className="relative hidden md:flex items-center justify-center bg-[#394245] rounded-[12px]">
     
     {/* Background image */}
     <div className="absolute inset-0 overflow-hidden mt-10">
@@ -138,7 +138,7 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     />
 </div>
     {/* Dark overlay */}
-<div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(81,82,68,0.9)_55%,rgba(81,82,68,1)_70%)] mb-80 pointer-events-none">
+<div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(57,66,69,0.9)_55%,rgba(57,66,69,1)_70%)] mb-80 pointer-events-none">
 </div>
 
     {/* Overlay text */}
@@ -147,10 +147,16 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         Built for better <br />
         <span className="text-[#F9B233]">learning</span>
       </h2>
-      <div className="absolute z-10 px-10 top-[-160px] left-[100px] pointer-events-none">
-      <Image src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Eclipse.png" alt=""  width={400}
-      height={400} />
-    </div>
+      <div className="absolute inset-0 z-10 flex items-center justify-center -translate-y-1/2 pointer-events-none">
+  <Image
+    src="/images/Eclipse.png"
+    alt=""
+    width={500}
+    height={500}
+    className="w-[62vw] max-w-[500px] min-w-[200px] h-auto"
+  />
+</div>
+
     </div>
   </div>
 
@@ -158,7 +164,7 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   <div className="flex items-center justify-center px-6">
     <div className="w-full max-w-md">
       {/* Logo */}
-      <div className="flex justify-center mb-12 w-full h-22">
+      <div className="flex justify-center mb-8 mt-[-20px] w-full h-22">
         <Image
           src="/logos/stackable-symbol.webp"
           alt="Stackable logo"
