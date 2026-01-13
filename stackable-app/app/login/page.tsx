@@ -158,15 +158,16 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   <div className="flex items-center justify-center px-6">
     <div className="w-full max-w-md">
       {/* Logo */}
-      <div className="flex justify-center mb-12">
+      <div className="flex justify-center mb-12 w-full h-22">
         <Image
           src="/logos/stackable-symbol.webp"
           alt="Stackable logo"
-          className="h-22"
-          width={0}
-      height={0}
-      sizes="4vw"
-      style={{ width: 'auto', height: '22' }}
+          className="h-auto"
+          width={600}
+      height={600}
+      quality={100} // Control the quality (1-100)
+      sizes="70vw"
+      style={{ width: 'auto', height: '66' }}
         />
       </div>
 
