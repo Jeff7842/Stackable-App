@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from 'next/image';
+import { useToast } from "../../components/toast/ToastProvider";
 
 function UseOtp(length = 5) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
@@ -41,6 +42,10 @@ function UseOtp(length = 5) {
 
   const getOtp = () => otp.join("");
 
+   const resetOtp = () => {
+    setOtp(Array(length).fill(""));
+    inputsRef.current = [];
+  };
   
 
   return {
@@ -50,6 +55,7 @@ function UseOtp(length = 5) {
     handleKeyDown,
     handlePaste,
     getOtp,
+    resetOtp,
   };
 }
 
@@ -65,10 +71,17 @@ const page = () => {
   handleKeyDown,
   handlePaste,
   getOtp,
+  resetOtp,
 } = UseOtp(5);
 
 // eslint-disable-next-line react-hooks/rules-of-hooks
 const [isOtpOpen, setIsOtpOpen] = useState(false);
+// eslint-disable-next-line react-hooks/rules-of-hooks
+const { showToast } = useToast();
+const handleCloseOtp = () => {
+  resetOtp();
+  setIsOtpOpen(false);
+};
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
@@ -107,7 +120,7 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
       {/* Logo */}
       <div className="flex justify-center mb-12">
         <Image
-          src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Artboard%203.png"
+          src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Layer%2015.png"
           alt="Stackable logo"
           className="h-22"
           width={0}
@@ -132,7 +145,8 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
           <input
             type="email"
             placeholder="stackable@example.com"
-            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:outline-none focus:ring-1 focus:ring-[#F9B233]"
+            className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2"
+            required
           />
         </div>
 
@@ -144,7 +158,8 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
     type="password"
     placeholder="••••••••••"
     className="w-full rounded-lg border border-gray-300 px-4 py-2 pr-10
-               focus:outline-none focus:ring-1 focus:ring-[#F9B233]"
+                focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2"
+               required
   />
 
   <svg
@@ -175,11 +190,11 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
 
         {/* Divider */}
         <div className="flex items-center my-6">
-          <div className="flex-grow border-t border-gray-200"></div>
+          <div className="grow border-t border-gray-200"></div>
           <span className="mx-4 text-xs text-gray-400 tracking-wide whitespace-nowrap">
             or sign in with
           </span>
-          <div className="flex-grow border-t border-gray-200"></div>
+          <div className="grow border-t border-gray-200"></div>
         </div>
 
         {/* Google button */}
@@ -187,12 +202,14 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
           type="button"
           className="flex w-full h-[40px] items-center justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white hover:font-[700] hover:scale-[1.02] transition"
         >
-          <img
+          <Image
             src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/google.png"
             alt="Google"
             className="h-5 w-5"
+            width={5}
+            height={5}
           />
-          <span className="text-sm font-header font-[500]">Sign in with Google</span>
+          <span className="text-sm font-header font-medium">Sign in with Google</span>
         </button>
 
         {/* Footer */}
@@ -215,7 +232,7 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
     {/* Overlay */}
     <div
       className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-      onClick={() => setIsOtpOpen(false)}
+      onClick={handleCloseOtp}
     />
 
     {/* Modal */}
@@ -230,7 +247,7 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
       type="button"
       className="absolute right-4 top-4 rounded-full p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-700 transition"
       aria-label="Close"
-      onClick={() => setIsOtpOpen(false)}
+      onClick={handleCloseOtp}
     >
       <svg
         className="h-5 w-5"
@@ -249,8 +266,21 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
     const otpValue = getOtp();
 
     if (otpValue.length !== 5) {
-      alert("Incomplete OTP");
+      showToast({
+          type: "error",
+          title: "Please try again",
+          description: "Invalid email or password",
+        })
       return;
+    }
+    if (otpValue.length== 5) {
+      showToast({
+          type: "success",
+          title: "Welcome Back!",
+          description: "You have been successfully logged in.",
+        });
+        setIsOtpOpen(false);
+        resetOtp();
     }
 
     console.log("OTP Submitted:", otpValue);
@@ -302,7 +332,7 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
       onChange={(e) => handleChange(e.target.value, index)}
       onKeyDown={(e) => handleKeyDown(e, index)}
       className="h-14 w-14 rounded-xl border border-gray-300 text-center text-2xl font-semibold
-                 focus:border-[#F9B233] focus:ring-2 focus:ring-[#F9B233]/40 transition"
+                  focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2 "
     />
   ))}
 </div>
@@ -319,8 +349,8 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
       <button
         type="submit"
         className="w-full rounded-xl bg-[#FFF4C2] py-3 text-lg font-medium text-black
-                   hover:bg-[#F9E38C] hover:scale-[1.02]
-                   transition"
+                   hover:bg-[#F9E38C] hover:scale-[1.02] transform
+    transition-transform duration-1000"
       >
         Verify OTP
       </button>
@@ -330,308 +360,6 @@ const [isOtpOpen, setIsOtpOpen] = useState(false);
 </div>
 </>
 )}
-
-{/* Error Toast */}
-<div className="flex flex-col gap-2 w-60 sm:w-72 text-[10px] sm:text-xs z-50">
-  <div
-    className="
-      error-alert cursor-default flex items-center justify-between
-      w-full h-12 sm:h-14 rounded-lg
-      bg-gradient-to-r from-rose-600 to-red-700
-      px-[10px]
-      shadow-lg shadow-red-900/40
-    "
-  >
-    <div className="flex gap-2">
-      {/* Icon wrapper */}
-      <div
-        className="
-          text-[#ffbf00]
-          bg-white/15 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-          className="w-6 h-6"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-          />
-        </svg>
-      </div>
-
-      {/* Text */}
-      <div className="leading-tight">
-        <p className="text-[#fff200] font-semibold">
-          Please try again
-        </p>
-        <p className="text-red-100/90">
-          This is the description part
-        </p>
-      </div>
-    </div>
-
-    {/* Close button */}
-    <button
-      className="
-        text-red-100/90
-        hover:text-white
-        hover:bg-white/10
-        p-1 rounded-md
-        transition-colors
-        
-      "
-      
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth="1.5"
-        stroke="currentColor"
-        className="w-5 h-5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M6 18 18 6M6 6l12 12"
-        />
-      </svg>
-    </button>
-  </div>
-</div>
-
-
-{/* Success Toast */}
-<div className="flex flex-col gap-2 w-60 sm:w-72 text-[10px] sm:text-xs z-50">
-  <div
-    className="
-      cursor-default flex items-center justify-between
-      w-full h-12 sm:h-14 rounded-lg
-      bg-gradient-to-r from-[#08bd38] to-emerald-700
-      px-[10px] shadow-lg shadow-emerald-900/30
-    "
-  >
-    <div className="flex gap-2">
-      {/* Icon wrapper */}
-      <div
-        className="
-          text-yellow-400
-          bg-white/15 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="2"
-          stroke="currentColor"
-          className="w-6 h-6"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="m4.5 12.75 6 6 9-13.5"
-          />
-        </svg>
-      </div>
-
-      {/* Text */}
-      <div className="leading-tight">
-        <p className="text-white text-[12px] font-semibold">
-          Done successfully
-        </p>
-        <p className="text-emerald-100/80">
-          This is the description section
-        </p>
-      </div>
-    </div>
-
-    {/* Close button */}
-    <button
-      className="
-        text-emerald-100/90
-        hover:text-white
-        hover:bg-white/10
-        p-1 rounded-md
-        transition-colors
-      "
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth="1.5"
-        stroke="currentColor"
-        className="w-5 h-5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M6 18 18 6M6 6l12 12"
-        />
-      </svg>
-    </button>
-  </div>
-</div>
-
-{/*Notifiaction Toast*/}
-
-<div className="flex flex-col gap-2 w-60 sm:w-72 text-[10px] sm:text-xs z-50">
-  <div
-    className="
-      info-alert cursor-default flex items-center justify-between
-      w-full h-12 sm:h-14 rounded-lg
-      bg-gradient-to-r from-sky-600 to-blue-700
-      px-[10px]
-      shadow-lg shadow-blue-900/30
-    "
-  >
-    <div className="flex gap-2">
-
-      <div
-        className="
-          text-orange-400
-          bg-white/15 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="1.8"
-          stroke="currentColor"
-          className="w-6 h-6"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"
-          />
-        </svg>
-      </div>
-
-
-      <div className="leading-tight">
-        <p className="text-white font-semibold">
-          You have a message
-        </p>
-        <p className="text-blue-100/80">
-          Click to see the message…
-        </p>
-      </div>
-    </div>
-
-    <button
-      className="
-        text-blue-100/90
-        hover:text-white
-        hover:bg-white/10
-        p-1 rounded-md
-        transition-colors
-      "
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="1.5"
-        stroke="currentColor"
-        className="w-5 h-5"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M6 18 18 6M6 6l12 12"
-        />
-      </svg>
-    </button>
-  </div>
-</div>
-
-{/* Warning Toast */}
-<div className="flex flex-col gap-2 w-60 sm:w-72 text-[10px] sm:text-xs z-50">
-  <div
-    className="
-      warning-alert cursor-default flex items-center justify-between
-      w-full h-12 sm:h-14 rounded-lg
-      bg-gradient-to-r from-amber-500 to-orange-600
-      px-[10px]
-      shadow-lg shadow-orange-900/40
-    "
-  >
-    <div className="flex gap-2">
-      {/* Icon wrapper */}
-      <div
-        className="
-          text-white
-          bg-black/20 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth="1.6"
-          stroke="currentColor"
-          className="w-6 h-6"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M12 9v3.75m0 3.75h.008v.008H12v-.008ZM10.29 3.86l-7.4 12.82A1.5 1.5 0 0 0 4.19 19h15.62a1.5 1.5 0 0 0 1.3-2.32l-7.4-12.82a1.5 1.5 0 0 0-2.6 0Z"
-          />
-        </svg>
-      </div>
-
-      {/* Text */}
-      <div className="leading-tight">
-        <p className="text-white font-semibold">
-          Action recommended
-        </p>
-        <p className="text-amber-100/85">
-          Please review this before continuing
-        </p>
-      </div>
-    </div>
-
-    {/* Close button */}
-    <button
-      className="
-        text-amber-100/90
-        hover:text-white
-        hover:bg-white/10
-        p-1 rounded-md
-        transition-colors
-      "
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        strokeWidth="1.5"
-        stroke="currentColor"
-        className="w-5 h-5"
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M6 18 18 6M6 6l12 12"
-        />
-      </svg>
-    </button>
-  </div>
-</div>
 
 
 

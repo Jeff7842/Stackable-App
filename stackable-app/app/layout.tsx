@@ -5,6 +5,8 @@ import { Poppins } from 'next/font/google';
 import { Inter } from 'next/font/google';
 import { ABeeZee } from 'next/font/google';
 import Acumin from 'next/font/local';
+import { ToastProvider } from "../components/toast/ToastProvider";
+
 
 const acumin = Acumin({
   src: [
@@ -63,7 +65,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased`}
       >
-        {children}
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );
