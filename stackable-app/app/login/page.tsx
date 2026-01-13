@@ -130,7 +130,7 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     
     {/* Background image */}
     <div className="absolute inset-0 overflow-hidden mt-10">
-    <Image src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Teacher%20laptop%202-Picsart-AiImageEnhancer.png"
+    <Image src="/images/teacher.png"
       alt="Teacher"
       className="absolute inset-0 w-full h-full object-cover pointer-events-none"
       width={500}
@@ -160,7 +160,7 @@ const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       {/* Logo */}
       <div className="flex justify-center mb-12">
         <Image
-          src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Layer%2015.png"
+          src="/logos/stackable-symbol.webp"
           alt="Stackable logo"
           className="h-22"
           width={0}
