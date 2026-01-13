@@ -92,13 +92,13 @@ const handleCloseOtp = () => {
     <div className="absolute inset-0 overflow-hidden mt-10">
     <Image src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Teacher%20laptop%202-Picsart-AiImageEnhancer.png"
       alt="Teacher"
-      className="absolute inset-0 w-full h-full object-cover"
+      className="absolute inset-0 w-full h-full object-cover pointer-events-none"
       width={500}
       height={500}
     />
 </div>
     {/* Dark overlay */}
-<div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(81,82,68,0.9)_55%,rgba(81,82,68,1)_70%)] mb-80">
+<div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(81,82,68,0.9)_55%,rgba(81,82,68,1)_70%)] mb-80 pointer-events-none">
 </div>
 
     {/* Overlay text */}
@@ -107,7 +107,7 @@ const handleCloseOtp = () => {
         Built for better <br />
         <span className="text-[#F9B233]">learning</span>
       </h2>
-      <div className="absolute z-10 px-10   top-[-160px] left-[90px]">
+      <div className="absolute z-10 px-10   top-[-160px] left-[90px] pointer-events-none">
       <Image src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/Eclipse.png" alt=""  width={400}
       height={400} />
     </div>
@@ -126,7 +126,7 @@ const handleCloseOtp = () => {
           width={0}
       height={0}
       sizes="4vw"
-      style={{ width: 'auto', height: 'auto' }}
+      style={{ width: 'auto', height: '22' }}
         />
       </div>
 
@@ -183,7 +183,7 @@ const handleCloseOtp = () => {
         <button
         onClick={() => setIsOtpOpen(true)}
           type="button"
-          className="w-full rounded-lg text-[18px] text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] hover:font-bold hover:text-[#7D6939] transition"
+          className="w-full rounded-lg text-[18px] text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] hover:text-[#7D6939] transition"
         >
           Continue
         </button>
@@ -200,7 +200,7 @@ const handleCloseOtp = () => {
         {/* Google button */}
         <button
           type="button"
-          className="flex w-full h-[40px] items-center justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white hover:font-[700] hover:scale-[1.02] transition"
+          className="flex w-full h-[40px] items-center justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white  hover:scale-[1.02] transition"
         >
           <Image
             src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/google.png"
@@ -350,7 +350,7 @@ const handleCloseOtp = () => {
         type="submit"
         className="w-full rounded-xl bg-[#FFF4C2] py-3 text-lg font-medium text-black
                    hover:bg-[#F9E38C] hover:scale-[1.02] transform
-    transition-transform duration-1000"
+    transition-transform duration-200"
       >
         Verify OTP
       </button>
