@@ -1,9 +1,11 @@
+/* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
 import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "../../components/toast/ToastProvider";
+import { useRouter } from "next/navigation";
 
 function UseOtp(length = 5) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
@@ -157,6 +159,13 @@ function EyeClosed() {
   );
 }
 
+const router = useRouter();
+
+const [isAuthTransitioning, setIsAuthTransitioning] = useState(false);
+const [showWelcome, setShowWelcome] = useState(false);
+
+// mock user – later replace from API / JWT
+const firstName = "Jeff";
 
   return (
     <div className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
@@ -460,7 +469,20 @@ function EyeClosed() {
                       description: "You have been successfully logged in.",
                     });
                     setIsOtpOpen(false);
-                    resetOtp();
+  resetOtp();
+
+  // Step 1: Loader
+  setIsAuthTransitioning(true);
+
+  // Step 2: Welcome screen
+  setTimeout(() => {
+    setShowWelcome(true);
+  }, 1200);
+
+  // Step 3: Redirect
+  setTimeout(() => {
+    router.push("https://dashboard.kyfaru.com");
+  }, 2600);
                   }
 
                   console.log("OTP Submitted:", otpValue);
@@ -541,6 +563,36 @@ function EyeClosed() {
           </div>
         </>
       )}
+
+      {isAuthTransitioning && !showWelcome && (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#F7F9E2]">
+    <div className="flex flex-col items-center gap-6">
+      <div className="flex flex-row gap-2">
+  <div className="w-4 h-4 rounded-full bg-[#ECB938] animate-bounce"></div>
+  <div
+    className="w-4 h-4 rounded-full bg-[#475051] animate-bounce [animation-delay:-.3s]"
+  ></div>
+  <div
+    className="w-4 h-4 rounded-full bg-[#326B3F] animate-bounce [animation-delay:-.5s]"
+  ></div>
+</div>
+      <p className="text-sm text-gray-500 tracking-wide">
+        Securing your session…
+      </p>
+    </div>
+  </div>
+)}
+
+
+{showWelcome && (
+  <div className="fixed inset-0 z-[110] flex items-center justify-center bg-[#F7F9E2]">
+    <h1 className="text-[64px] font-bold text-black">
+      Welcome back{" "}
+      <span className="text-[#30693E]">{firstName}!</span>
+    </h1>
+  </div>
+)}
+
     </div>
   );
 };
