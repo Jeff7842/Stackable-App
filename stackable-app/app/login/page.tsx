@@ -266,7 +266,7 @@ function EyeClosed() {
             </div>
 
             {/* Password */}
-            <div className={`space-y-1 ${authError ? "animate-shake" : ""}`}>
+            <div className={`space-y-1 mt-[-10px] ${authError ? "animate-shake" : ""}`}>
               <label
                 className={`text-sm font-medium ${
                   authError ? "text-red-600" : "text-black"
@@ -328,15 +328,42 @@ function EyeClosed() {
               Continue
             </button>
 
-            <p className="text-center text-sm mt-[-8px] mb-[-10px]">
+            <div className="mt-[-15px] ">
+              <div className="mt-10px translate-y-1/2 ml-[10px]"><label
+  htmlFor="hr"
+  className="flex flex-row items-center font-medium text-sm gap-2.5 text-gray-600"
+>
+  <input id="hr" type="checkbox" className="peer hidden" />
+  <div
+    className="h-4 w-4 flex rounded-sm border border-[#f9ce33] light:bg-[#e8e8e8] dark:bg-[#ffffff] peer-checked:bg-[#ECB938] transition"
+  >
+    <svg
+      fill="none"
+      viewBox="0 0 24 24"
+      className="w-5 h-5 light:stroke-[#e8e8e8] dark:stroke-[#ffffff] checked:text-[#ECB938] items-center justify-center m-auto -translate-y-1/8"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        d="M4 12.6111L8.92308 17.5L20 6.5"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      ></path>
+    </svg>
+  </div>
+  Remember me
+</label>
+</div>
+<div><p className="text-right text-sm mt-[-10px] mb-[30px] ">
               <Link
                 href="/forgot-passoword"
                 className="text-[#ECB938] hover:text-[#F9E38C] font-medium hover:underline"
               >
                 Forgot password?
               </Link>
-            </p>
-
+            </p></div>
+            
+</div>
             {/* Divider */}
             <div className="flex items-center my-6">
               <div className="grow border-t border-gray-200"></div>
