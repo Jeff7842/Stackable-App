@@ -94,20 +94,54 @@ const page = () => {
 
   const [authError, setAuthError] = useState(false);
 
-  const handleContinue = () => {
-    // replace this with API / auth call later
-    const credentialsAreValid =
-      email === "admin@stackable.com" && password === "123456";
+  const handleContinue = async () => {
+  try {
+    setAuthError(false);
 
-    if (!credentialsAreValid) {
+    const loginRes = await fetch("../api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        password,
+      }),
+    });
+
+    if (!loginRes.ok) {
       setAuthError(true);
-
       return;
     }
 
-    // ✅ success → proceed to OTP
+    const { userId, schoolCode } = await loginRes.json();
+
+    const otpRes = await fetch("../api/auth/send-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        schoolCode,
+        email,
+      }),
+    });
+
+    if (!otpRes.ok) {
+      showToast({
+        type: "error",
+        title: "OTP failed",
+        description: "Unable to send verification code",
+      });
+      return;
+    }
+
+    // ✅ same behavior as before
     setIsOtpOpen(true);
-  };
+
+  } catch (err) {
+    console.error(err);
+    setAuthError(true);
+  }
+};
+
 
   const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
@@ -265,6 +299,8 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                   <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
                 </svg>
                 <input
+                  name="email"
+                  id="email"
                   type="email"
                   onChange={(e) => onEmailChange(e)}
                   placeholder="stackable@example.com"
@@ -309,6 +345,8 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                   <path d="M8 11v-4a4 4 0 1 1 8 0v4" />
                 </svg>
                 <input
+                 name="password"
+                 id="password"
                   type={visible ? "text" : "password"}
                   placeholder="••••••••••"
                   onChange={(e) => onPasswordChange(e)}

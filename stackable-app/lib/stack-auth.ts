@@ -1,6 +1,23 @@
-import { StackAuth } from "@stack-auth/next/server";
+import "server-only";
+import { StackServerApp } from "@stackframe/stack";
 
-export const stackAuth = new StackAuth({
-  secret: process.env.STACK_AUTH_SECRET!,
-  projectId: process.env.STACK_AUTH_PROJECT_ID!,
+export const stackAuth = new StackServerApp({
+    tokenStore: "nextjs-cookie",
+    
+  //secret: process.env.STACK_SECRET_SERVER_KEY!,
+  projectId: process.env.NEXT_PUBLIC_STACK_PROJECT_ID,
+  publishableClientKey: process.env.NEXT_PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY,
+
+  /*urls: {
+    signIn: "/handler/sign-in",
+    signUp: "/handler/sign-up",
+    afterSignIn: "/dashboard",
+    afterSignUp: "/dashboard",
+    afterSignOut: "/handler/sign-in",
+    home: "/dashboard",
+  },
+  */
+  
 });
+
+console.log("STACK AUTH PROJECT:", stackAuth);
