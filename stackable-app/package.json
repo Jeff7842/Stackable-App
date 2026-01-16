@@ -9,11 +9,16 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@stackframe/stack": "^2.8.58",
+    "@supabase/supabase-js": "^2.90.1",
     "babel-plugin-react-compiler": "^1.0.0",
+    "bcryptjs": "^3.0.3",
     "flyonui": "^2.4.1",
     "next": "16.1.1",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "resend": "^6.7.0",
+    "zod": "^4.3.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
