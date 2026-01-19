@@ -94,54 +94,20 @@ const page = () => {
 
   const [authError, setAuthError] = useState(false);
 
-  const handleContinue = async () => {
-  try {
-    setAuthError(false);
+  const handleContinue = () => {
+    // replace this with API / auth call later
+    const credentialsAreValid =
+      email === "admin@stackable.com" && password === "123456";
 
-    const loginRes = await fetch("../api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    });
-
-    if (!loginRes.ok) {
+    if (!credentialsAreValid) {
       setAuthError(true);
+
       return;
     }
 
-    const { userId, schoolCode } = await loginRes.json();
-
-    const otpRes = await fetch("../api/auth/send-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        schoolCode,
-        email,
-      }),
-    });
-
-    if (!otpRes.ok) {
-      showToast({
-        type: "error",
-        title: "OTP failed",
-        description: "Unable to send verification code",
-      });
-      return;
-    }
-
-    // ✅ same behavior as before
+    // ✅ success → proceed to OTP
     setIsOtpOpen(true);
-
-  } catch (err) {
-    console.error(err);
-    setAuthError(true);
-  }
-};
-
+  };
 
   const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
@@ -299,8 +265,6 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                   <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
                 </svg>
                 <input
-                  name="email"
-                  id="email"
                   type="email"
                   onChange={(e) => onEmailChange(e)}
                   placeholder="stackable@example.com"
@@ -345,8 +309,6 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                   <path d="M8 11v-4a4 4 0 1 1 8 0v4" />
                 </svg>
                 <input
-                 name="password"
-                 id="password"
                   type={visible ? "text" : "password"}
                   placeholder="••••••••••"
                   onChange={(e) => onPasswordChange(e)}
@@ -381,18 +343,18 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
             </button>
 
             <div className="mt-[-15px] ">
-              <div className="mt-10px translate-y-1/2 ml-[10px]"><label
+              <div className="mt-10px translate-y-1/2 ml-[10px] w-fit"><label
   htmlFor="hr"
   className="flex flex-row items-center font-medium text-sm gap-2.5 text-gray-600"
 >
-  <input id="hr" type="checkbox" className="peer hidden" />
+  <input id="hr" type="checkbox" className="peer hidden cursor-pointer" />
   <div
-    className="h-4 w-4 flex rounded-sm border border-[#f9ce33] light:bg-[#e8e8e8] dark:bg-[#ffffff] peer-checked:bg-[#ECB938] transition"
+    className="h-4 w-4 flex rounded-sm border border-[#f9ce33] light:bg-[#e8e8e8] dark:bg-[#ffffff] peer-checked:bg-[#ECB938] transition cursor-pointer"
   >
     <svg
       fill="none"
       viewBox="0 0 24 24"
-      className="w-5 h-5 light:stroke-[#e8e8e8] dark:stroke-[#ffffff] checked:text-[#ECB938] items-center justify-center m-auto -translate-y-1/8"
+      className="w-5 h-5 light:stroke-[#e8e8e8] dark:stroke-[#ffffff] checked:text-[#ECB938] items-center justify-center m-auto -translate-y-1/8 cursor-pointer"
       xmlns="http://www.w3.org/2000/svg"
     >
       <path
@@ -529,13 +491,13 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
   // Step 3: Redirect
   setTimeout(() => {
     window.open( "https://dashboard.kyfaru.com", "_blank", "noopener,noreferrer" );
-}, 3600);
+}, 2600);
  
 setTimeout(() =>{
   router.replace("/login");
   setIsAuthTransitioning(false);
   setShowWelcome(false);
-}, 5000);
+}, 4000);
                   }
 
                   console.log("OTP Submitted:", otpValue);
@@ -638,7 +600,7 @@ setTimeout(() =>{
 
 
 {showWelcome && (
-  <div className="fixed inset-0 z-[110] flex items-center text-center justify-center bg-[#F7F9E2]">
+  <div className="fixed inset-0 z-110 flex items-center text-center justify-center bg-[#F7F9E2] h-[100vh] w-full">
     <h1 className="text-[64px] font-bold text-black">
       Welcome back{" "}
       <span className="text-[#30693E]">{firstName}!</span>

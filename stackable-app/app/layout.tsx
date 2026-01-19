@@ -1,6 +1,4 @@
 import type { Metadata } from "next";
-import { StackProvider, StackTheme } from "@stackframe/stack";
-import { stackClientApp } from "../stack/client";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Poppins } from 'next/font/google';
@@ -66,9 +64,9 @@ export default function RootLayout({
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased`}
-      ><StackProvider app={stackClientApp}><StackTheme>
+      >
         <ToastProvider>{children}</ToastProvider>
-      </StackTheme></StackProvider></body>
+      </body>
     </html>
   );
 }
