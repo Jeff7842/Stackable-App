@@ -2,6 +2,14 @@
   "name": "stackable-app",
   "version": "0.1.0",
   "private": true,
+  "description": "This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -9,14 +17,12 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@stackframe/stack": "^2.8.58",
-    "@supabase/supabase-js": "^2.90.1",
+    "@tabler/icons-react": "^3.36.1",
     "babel-plugin-react-compiler": "^1.0.0",
-    "bcryptjs": "^3.0.3",
     "flyonui": "^2.4.1",
-    "next": "16.1.1",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
+    "next": "^16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "resend": "^6.7.0",
     "zod": "^4.3.5"
   },
