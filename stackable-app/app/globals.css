@@ -10,6 +10,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
+  --font-open: var(--font-open-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-poppins);
   --font-body: var(--font-inter);

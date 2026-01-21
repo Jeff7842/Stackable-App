@@ -18,11 +18,11 @@ const dashbaordlayout = ({children}:{children: React.ReactNode}) => {
 {/*/Production version*/}
 <Script src="https://unpkg.com/lucide@latest"></Script>
       </head>
-    <div className="flex text-black">
+    <div className="flex text-black bg-[#F6F6F6]">
       <Sidebar />
       <div className="ml-68">
         <Navbar />
-        <div className='mt-20'>
+        <div className='mt-25'>
         {children}
         </div>
       </div>

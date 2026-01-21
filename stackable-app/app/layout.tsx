@@ -4,6 +4,7 @@ import "./globals.css";
 import { Poppins } from 'next/font/google';
 import { Inter } from 'next/font/google';
 import { ABeeZee } from 'next/font/google';
+import { Open_Sans } from 'next/font/google';
 import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
 
@@ -23,6 +24,13 @@ const poppins = Poppins({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-poppins',
+  display: 'swap',
+});
+
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-open-sans',
   display: 'swap',
 });
 
@@ -63,8 +71,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased`}
-      >
+        className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased `}>
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
