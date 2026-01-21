@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import ProfileModal from './Profile-Modal';
 
 export default function Navbar () {
   const [dark, setDark] = useState(false)
+  const [open, setOpen] = useState(false);
 
   // Load saved theme
   useEffect(() => {
@@ -196,87 +198,21 @@ export default function Navbar () {
       transition-all duration-300'>
 <Image src="/images/5739662.jpg" alt="alt" className='rounded-full w-12 h-12' width={500} height={500} />
 </div>
-            {/* conte */}
+            {/* content */}
             <div className='w-fit px-2 py-2 pl-15 rounded-[27px] mr-auto'>
               <h2 className='text-[15px] font-body font-[600]'>Jefferson Kimotho</h2>
               <p className='text-[12px]'>Super Admin</p>
             </div>
-            <div className='flex absolute ml-auto z-13 left-[13rem] top-1/2 -translate-y-1/2 rounded-full w-7 h-7 bg-gray-200 items-center justify-center hover:bg-black hover:text-white hover:scale-[1.04] cursor-pointer transition-all duration-300'>
+            <button id='user-arrow' onClick={() => setOpen(true)}  className='flex absolute ml-auto z-13 left-[13rem] top-1/2 -translate-y-1/2 rounded-full w-7 h-7 bg-gray-200 items-center justify-center hover:bg-black hover:text-white hover:scale-[1.04] cursor-pointer transition-all duration-300'>
             <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="icon icon-tabler icons-tabler-outline icon-tabler-chevron-right"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M9 6l6 6l-6 6" /></svg>
-          </div>
+          </button>
           </div>
           </div>
         </div>
         <div className='border-b border-gray-400 w-[98%] ml-3'></div>
       </header>
 
-      <div
-  className="absolute left-[76rem] top-[50px] 
-  w-75 h-85 bg-white rounded-[25px] shadow-xl z-[100] overflow-hidden flex flex-col">
-  {/* HEADER / COVER */}
-  <header className="relative h-1/4 w-full">
-    <Image
-      src="/images/653.jpg"
-      alt="Profile cover"
-      className="w-full h-full object-cover  hover:scale-[1.1]
-      transition-all duration-4000"
-      width={500}
-      height={500}/>
-
-    {/* Avatar */}
-    <div
-      className="absolute bottom-[-40px] left-1/2 -translate-x-1/2
-      bg-white p-1 rounded-full w-20 h-20
-      flex items-center justify-center
-      cursor-pointer hover:scale-[1.03]
-      transition-all duration-300"
-    >
-      <Image src='/images/5739662.jpg'
-        alt="User avatar"
-        className="rounded-full w-18 h-18 object-cover hover:grayscale-70"
-        width={500}
-        height={500}
-      />
-    </div>
-  </header>
-
-  {/* CONTENT AREA — 3/4 HEIGHT */}
-  <main className="flex-1 pt-14 px-6 flex flex-col justify-between">
-    <section className="space-y-3 text-center">
-      <h1 className="text-[22px] font-bold font-body text-black">
-        Jefferson Kimotho
-      </h1>
-
-      <p className="text-[14px] text-gray-500 mt-[-10px]">
-        Super Admin
-      </p>
-<p className="text-[14px] text-gray-600 mt-[-5px]"><strong>Kyfaru Academy</strong>
-      </p>
-
-<div className='col-span-1 gap-4 flex'>
-      <address className="not-italic text-[14px] text-gray-600">
-        contact@kyfaru.ac.ke
-      </address>
-      <p className="text-[14px] text-gray-600">ID: <strong>KYFU23296</strong>
-      </p>
-</div>
-      <hr className="my-3" />
-
-      {/* Attendance Report */}
-      
-    </section>
-
-    {/* CTA */}
-    <footer className="pb-4">
-      <button
-        className="w-full py-2 rounded-full bg-black text-white
-        hover:bg-[#F7F9E2] hover:text-black hover:scale-[1.01] cursor-pointer hover:outline-1 hover:outline-black hover:shadow-2xl transition-all duration-300"
-      >
-        View More
-      </button>
-    </footer>
-  </main>
-</div>
+      <ProfileModal open={open} onClose={() => setOpen(false)} />
 
     </>
   )

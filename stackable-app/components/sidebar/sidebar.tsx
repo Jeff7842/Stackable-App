@@ -3,6 +3,33 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import { usePathname } from "next/navigation";
+import clsx from "clsx";
+
+type SidebarLinkProps = {
+  href: string;
+  children: React.ReactNode;
+};
+
+function SidebarLink({ href, children }: SidebarLinkProps) {
+  const pathname = usePathname();
+  const isActive = pathname === href;
+
+  return (
+    <Link
+      href={href}
+      className={clsx(
+        "flex items-center gap-2 w-full px-3 py-2 text-[14px] rounded-[20px]",
+        "transition-colors duration-200",
+        "hover:bg-gray-100",
+        isActive && "bg-[#F7F9E2] text-[#F19F24] font-medium"
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 
 export default function Sidebar() {
   const [open, setOpen] = useState(false);
@@ -18,13 +45,13 @@ export default function Sidebar() {
     <aside className="w-64 h-[98.4%] z-15 translate-y-[5px] translate-x-[5px] bg-[#fffefb] shadow-[0_35px_35px_rgba(0,0,0,0.15)] inset-shadow-sm inset-shadow-gray-200 border border-white rounded-[30px] fixed left-0 top-0 overflow-hidden">
       <div
         className="h-full overflow-y-auto overflow-x-hidden
-    [&::-webkit-scrollbar]:w-1
+    [&::-webkit-scrollbar]:w-[3px]
     [&::-webkit-scrollbar-track]:rounded-full
-    [&::-webkit-scrollbar-track]:bg-gray-100
+    [&::-webkit-scrollbar-track]:bg-gray-300
     [&::-webkit-scrollbar-thumb]:rounded-full
-    [&::-webkit-scrollbar-thumb]:bg-gray-300
-    dark:[&::-webkit-scrollbar-track]:bg-neutral-700
-    dark:[&::-webkit-scrollbar-thumb]:bg-neutral-500"
+    [&::-webkit-scrollbar-thumb]:bg-[#F19F24]
+    dark:[&::-webkit-scrollbar-track]:bg-neutral-400
+    dark:[&::-webkit-scrollbar-thumb]:bg-[#007146]"
       >
         <div className="flex justify-between items-center align-middle gap-3 mt-0">
           <div className="p-4 font-bold text-xl flex items-center justify-center">
@@ -60,7 +87,7 @@ export default function Sidebar() {
           <ul>
             <li className="mt-3 mb-3">
               <Link
-                href="/dashboard"
+                href="/dashboard/settings"
                 className="flex w-fit gap-[5px] font-body font-300 text-[14px] text-center align-middle items-center justify-center"
               >
                 <svg
@@ -94,12 +121,9 @@ export default function Sidebar() {
         </nav>
         <div className="grow border-t border-gray-300 mb-3.25 mt-3.75 w-[93%] flex ml-[7px]"></div>
         <nav className="flex flex-col gap-2 px-4">
-          <ul>
-            <li className="mt-3 mb-3">
-              <Link
-                href="/dashboard"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
-              >
+          <ul className="space-y-5">
+            <li className="mt-3 mb-3 ">
+              <SidebarLink href="/dashboard">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width={24}
@@ -117,13 +141,12 @@ export default function Sidebar() {
                   <path d="M16 15c-2.21 1.333 -5.792 1.333 -8 0" />
                 </svg>
                 Home
-              </Link>
+              </SidebarLink>
             </li>
             <li className="mt-3 mb-3">
-              <Link
+              <SidebarLink
                 href="/dashboard/students"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
-              >
+                >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width={24}
@@ -141,73 +164,81 @@ export default function Sidebar() {
                   <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
                 </svg>
                 Notifications
-              </Link>
+              </SidebarLink>
             </li>
+            
             <li className="mt-3 mb-3">
-              {/* Parent */}
-              <button
-                onClick={() => setOpen(!open)}
-                className="flex items-center gap-2 text-[14px] font-body w-full"
-              >
-                <span className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width={24}
-                    height={24}
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth={1.2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="icon icon-tabler icons-tabler-outline icon-tabler-bolt flex items-center align-middle justify-center"
-                  >
-                    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-                    <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
-                  </svg>
-                  Live Activity
-                </span>
+  <div
+    className={clsx(
+      "rounded-[20px] transition-colors duration-200",
+      isOpen("live-activity") && "bg-gray-50"
+    )}
+  >
+    {/* Parent */}
+    <button
+      onClick={() => toggle("live-activity")}
+      className="w-full">
+      <span
+        className={clsx(
+          "flex items-center gap-2 w-full px-3 py-2 text-[14px]",
+          "hover:bg-gray-100 rounded-[20px]",
+          isOpen("live-activity") && "text-[#007146]"
+        )}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width={24}
+          height={24}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M13 3l0 7l6 0l-8 11l0 -7l-6 0l8 -11" />
+        </svg>
 
-                {/* Chevron */}
-                <svg
-                  className={`ml-auto h-4 w-4 transition-transform ${
-                    open ? "rotate-180" : ""
-                  }`}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M6 9l6 6 6-6" />
-                </svg>
-              </button>
+        Live Activity
 
-              {/* Children */}
-              {open && (
-                <ul className="ml-4 mt-2 flex flex-col gap-2">
-                  <li>
-                    <Link
-                      href="/dashboard/attendance"
-                      className="text-[14px] text-gray-900 hover:text-black"
-                    >
-                      Real-time Attendance
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/dashboard/transport"
-                      className="text-[14px] text-gray-900 hover:text-black"
-                    >
-                      Transport Status
-                    </Link>
-                  </li>
-                </ul>
-              )}
-            </li>
+        {/* Chevron */}
+        <svg
+          className={clsx(
+            "ml-auto h-4 w-4 transition-transform",
+            isOpen("live-activity") && "rotate-180"
+          )}
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </span>
+    </button>
+
+    {/* Children (inside same background) */}
+    {isOpen("live-activity") && (
+      <ul className="pl-8 pb-2 flex flex-col gap-1">
+        <li>
+          <SidebarLink href="/dashboard/attendance">
+            Real-time Attendance
+          </SidebarLink>
+        </li>
+        <li>
+          <SidebarLink href="/dashboard/transport">
+            Transport Status
+          </SidebarLink>
+        </li>
+      </ul>
+    )}
+  </div>
+</li>
+
             <li className="mt-3 mb-3">
-              <Link
-                href="/dashboard/payments"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+              <SidebarLink
+                href="/dashboard/inbox"
+                
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -228,12 +259,12 @@ export default function Sidebar() {
                   <path d="M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1 -3 3h-5l-5 3v-3h-2a3 3 0 0 1 -3 -3v-8a3 3 0 0 1 3 -3l12 0" />
                 </svg>
                 Message Box
-              </Link>
+              </SidebarLink>
             </li>
             <li className="mt-5 mb-3">
-              <Link
-                href="/dashboard/payments"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+              <SidebarLink
+                href="/dashboard/calender"
+                
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -261,15 +292,22 @@ export default function Sidebar() {
                   <path d="M10.01 17h.005" />
                 </svg>
                 Calender
-              </Link>
+              </SidebarLink>
             </li>
             <li className="mt-3 mb-3">
+              <div
+    className={clsx(
+      "rounded-[20px] transition-colors duration-200",
+      isOpen("payments") && "bg-gray-50"
+    )}
+  >
               {/* Parent */}
               <button
                 onClick={() => toggle("payments")}
-                className="flex items-center gap-2 text-[14px] font-body w-full"
-              >
-                <span className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 items-center">
+                className="w-full">
+                <span
+        className={clsx("flex items-center gap-2 w-full px-3 py-2 text-[14px]",
+          "hover:bg-gray-50 rounded-[20px]")}>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width={24}
@@ -280,21 +318,21 @@ export default function Sidebar() {
                     strokeWidth={1.2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="icon icon-tabler icon-tabler-cash"
-                  >
+                    className="icon icon-tabler icon-tabler-cash">
                     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                     <path d="M7 15h-3a1 1 0 0 1 -1 -1v-8a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v3" />
                     <path d="M7 10a1 1 0 0 1 1 -1h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1v-8" />
                     <path d="M12 14a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
                   </svg>
                   Payments
-                </span>
+                
 
                 {/* Chevron */}
                 <svg
-                  className={`ml-auto h-4 w-4 transition-transform ${
-                    isOpen("payments") ? "rotate-180" : ""
-                  }`}
+                  className={clsx(
+            "ml-auto h-4 w-4 transition-transform",
+            isOpen("payments") && "rotate-180"
+          )}
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -302,37 +340,39 @@ export default function Sidebar() {
                 >
                   <path d="M6 9l6 6 6-6" />
                 </svg>
+</span>
               </button>
 
               {/* Children */}
               {isOpen("payments") && (
                 <ul className="ml-4 mt-2 flex flex-col gap-2">
                   <li>
-                    <Link
+                    <SidebarLink
                       href="/dashboard/attendance"
-                      className="text-[14px] text-gray-900 indent-[10px]"
+                      
                     >
                       Events
-                    </Link>
+                    </SidebarLink>
                   </li>
                   <li>
-                    <Link
+                    <SidebarLink
                       href="/dashboard/fees"
-                      className="text-[14px] text-gray-900"
+                      
                     >
                       School Fees
-                    </Link>
+                    </SidebarLink>
                   </li>
                   <li>
-                    <Link
+                    <SidebarLink
                       href="/dashboard/salaries"
-                      className="text-[14px] text-gray-900"
+                      
                     >
                       Salaries
-                    </Link>
+                    </SidebarLink>
                   </li>
                 </ul>
               )}
+              </div>
             </li>
           </ul>
         </nav>
@@ -342,7 +382,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Home
               </Link>
@@ -350,7 +390,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/students"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Students
               </Link>
@@ -358,7 +398,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/teachers"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Teachers
               </Link>
@@ -366,7 +406,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/payments"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Payments
               </Link>
@@ -379,7 +419,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Home
               </Link>
@@ -387,7 +427,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/students"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Students
               </Link>
@@ -395,7 +435,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/teachers"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Teachers
               </Link>
@@ -403,7 +443,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/payments"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Payments
               </Link>
@@ -416,7 +456,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Home
               </Link>
@@ -424,7 +464,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/students"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Students
               </Link>
@@ -432,7 +472,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/teachers"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Teachers
               </Link>
@@ -440,7 +480,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/payments"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Payments
               </Link>
@@ -453,7 +493,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Home
               </Link>
@@ -461,7 +501,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/students"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Students
               </Link>
@@ -469,7 +509,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/teachers"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Teachers
               </Link>
@@ -477,7 +517,7 @@ export default function Sidebar() {
             <li>
               <Link
                 href="/dashboard/payments"
-                className="flex w-fit gap-[5px] font-body font-300 text-[14px] mt-3 mb-3 text-center align-middle items-center justify-center"
+                
               >
                 Payments
               </Link>
