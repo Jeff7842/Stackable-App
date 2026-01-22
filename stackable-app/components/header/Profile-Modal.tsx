@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import Image from 'next/image';
 
+
 interface ProfileModalProps {
   open: boolean;
   onClose: () => void;
@@ -114,13 +115,19 @@ const ProfileModal = ({ open, onClose }: ProfileModalProps) => {
             </section>
         
             {/* CTA */}
-            <footer className="pb-4">
+            <footer className="pb-4 flex gap-4">
               <button
-                className="w-full py-2 rounded-full bg-black text-white
-                hover:bg-[#F7F9E2] hover:text-black hover:scale-[1.01] cursor-pointer hover:outline-1 hover:outline-black hover:shadow-2xl transition-all duration-300"
-              >
+                className="w-full py-1 text-[14px] rounded-full bg-black text-white outline-2 focus:text-[#ffffff] focus:outline-1 focus:outline-[#F19F24] focus:bg-[#F19F24]
+                hover:bg-transparent hover:text-black hover:scale-[1.01] cursor-pointer hover:outline-2 hover:outline-black hover:shadow-2xl transition-all duration-300">
                 View More
               </button>
+              <button
+        className="p-16-semibold flex size-full text-[14px] gap-2 p-2 items-center justify-center group font-semibold rounded-full bg-cover hover:bg-gray-50 hover:outline-1 hover:outline-red-600 hover:shadow-inner focus:bg-gradient-to-r from-red-400 to-red-600
+         focus:text-white text-red-700 hover:scale-[1.01] transition-all ease-linear ">
+        <svg xmlns="http://www.w3.org/2000/svg" width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="icon icon-tabler icons-tabler-outline icon-tabler-logout group-focus:text-amber-300"><path fill="none" stroke="none" d="M0 0h24v24H0z" /><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M9 12h12l-3 -3" /><path d="M18 15l3 -3" /></svg>
+        Logout
+      </button>
+
             </footer>
           </main>
         </div>
