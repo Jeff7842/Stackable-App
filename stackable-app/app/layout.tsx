@@ -7,6 +7,7 @@ import { ABeeZee } from 'next/font/google';
 import { Open_Sans } from 'next/font/google';
 import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
+import Script from 'next/script';
 
 
 const acumin = Acumin({
@@ -69,11 +70,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html>
+          <head>
+            {/* Tabler Icons */}
+            <link
+              rel="stylesheet"
+              href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"
+            />
+    
+    {/*/Production version*/}
+    <Script src="https://unpkg.com/lucide@latest"></Script>
+          </head>
       <body
         className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased `}>
         <ToastProvider>{children}</ToastProvider>
+
+            {/*Development version*/}
+    <Script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></Script>
+   
+
       </body>
-    </html>
+      </html>
   );
 }
