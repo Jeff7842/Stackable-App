@@ -44,6 +44,23 @@
   100% { transform: translateX(0); }
 }
 
+.filter-select {
+  @apply bg-white border border-gray-300 rounded-md px-3 py-1.5 text-sm outline-none focus:ring-2 focus:ring-yellow-400;
+}
+
+.icon-btn {
+  @apply bg-white border border-gray-300 p-2 rounded-md hover:bg-gray-100 transition;
+}
+
+.secondary-btn {
+  @apply bg-white border border-gray-300 px-3 py-1.5 rounded-md text-sm hover:bg-gray-100 transition;
+}
+
+.primary-btn {
+  @apply bg-yellow-400 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-yellow-500 transition shadow-sm;
+}
+
+
 .animate-shake {
   animation: shake 0.4s ease-in-out;
 }

@@ -60,7 +60,7 @@ export default function Sidebar() {
   const isOpen = (key: string) => openKey === key;
 
   return (
-    <aside className="w-64 md:none h-[98.4%] z-15 translate-y-[5px] translate-x-[5px] bg-[#fffefb] shadow-[0_35px_35px_rgba(0,0,0,0.15)] inset-shadow-sm inset-shadow-gray-200 border border-white rounded-[30px] fixed left-0 top-0 overflow-hidden">
+    <aside className="w-64 md:none h-[98.4%] z-15 translate-y-[5px] translate-x-[5px] bg-[#fffefb] outline-6 outline-gray-100 shadow-[0_35px_35px_rgba(0,0,0,0.15)] inset-shadow-sm inset-shadow-gray-200 border border-white rounded-[30px] fixed left-0 top-0 overflow-hidden">
       <div
         className="h-full overflow-y-auto overflow-x-hidden [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-300
     [&::-webkit-scrollbar-thumb]:rounded-full
@@ -68,7 +68,7 @@ export default function Sidebar() {
     dark:[&::-webkit-scrollbar-track]:bg-neutral-400
     dark:[&::-webkit-scrollbar-thumb]:bg-[#007146]"
       >
-        <div className="fixed z-10 w-full bg-white">
+        <div className="fixed z-10 w-full bg-white ">
           <div className="flex justify-between items-center align-middle gap-3 mt-0">
             <div className="p-4 font-bold text-xl flex items-center justify-center">
               <Image
@@ -427,13 +427,18 @@ export default function Sidebar() {
                 {isOpen("students") && (
                   <ul className="pl-8 pb-2 flex flex-col gap-1">
                     <li>
-                      <SidebarLink href="/dashboard/attendance">
-                        Real-time Attendance
+                      <SidebarLink href="/dashboard/students">
+                        All Students
                       </SidebarLink>
                     </li>
                     <li>
-                      <SidebarLink href="/dashboard/transport">
-                        Transport Status
+                      <SidebarLink href="/dashboard/students/students-resources">
+                        Student Resources
+                      </SidebarLink>
+                    </li>
+                    <li>
+                      <SidebarLink href="/dashboard/students/allocation">
+                        Allocation System
                       </SidebarLink>
                     </li>
                   </ul>
@@ -481,13 +486,18 @@ export default function Sidebar() {
                 {isOpen("teachers") && (
                   <ul className="pl-8 pb-2 flex flex-col gap-1">
                     <li>
-                      <SidebarLink href="/dashboard/attendance">
-                        Real-time Attendance
+                      <SidebarLink href="/dashboard/teachers">
+                        All teachers
                       </SidebarLink>
                     </li>
                     <li>
-                      <SidebarLink href="/dashboard/transport">
-                        Transport Status
+                      <SidebarLink href="/dashboard/teachers/teachers-resources">
+                        Teachers Resources
+                      </SidebarLink>
+                    </li>
+                    <li>
+                      <SidebarLink href="/dashboard/teachers/load-allocation">
+                        Teacher Load Allocation
                       </SidebarLink>
                     </li>
                   </ul>
@@ -536,13 +546,18 @@ export default function Sidebar() {
                 {isOpen("staff") && (
                   <ul className="pl-8 pb-2 flex flex-col gap-1">
                     <li>
-                      <SidebarLink href="/dashboard/attendance">
-                        Real-time Attendance
+                      <SidebarLink href="/dashboard/staff">
+                        All Staff
                       </SidebarLink>
                     </li>
                     <li>
-                      <SidebarLink href="/dashboard/transport">
-                        Transport Status
+                      <SidebarLink href="/dashboard/staff/staff-resources">
+                        Staff Resources
+                      </SidebarLink>
+                    </li>
+                    <li>
+                      <SidebarLink href="/dashboard/staff/duty-allocation">
+                        Duty Allocation
                       </SidebarLink>
                     </li>
                   </ul>
@@ -551,58 +566,11 @@ export default function Sidebar() {
             </li>
 
             <li className="mt-3 mb-3">
-              <div
-                className={clsx(
-                  "rounded-[20px] transition-colors duration-200",
-                  isOpen("admin-roles") && "bg-gray-50",
-                )}
-              >
-                {/* Parent */}
-                <button
-                  onClick={() => toggle("admin-roles")}
-                  className="w-full"
-                >
-                  <span
-                    className={clsx(
-                      "flex items-center gap-2 w-full px-3 py-2 text-[14px]",
-                      "hover:bg-gray-100 rounded-[20px]",
-                      isOpen("admin-roles") && "text-[#007146]",
-                    )}
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-round-pen-icon lucide-user-round-pen"><path d="M2 21a8 8 0 0 1 10.821-7.487"/><path d="M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/><circle cx="10" cy="8" r="5"/></svg>
-                    Admin Role
-                    {/* Chevron */}
-                    <svg
-                      className={clsx(
-                        "ml-auto h-4 w-4 transition-transform",
-                        isOpen("admin-roles") && "rotate-180",
-                      )}
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                    >
-                      <path d="M6 9l6 6 6-6" />
-                    </svg>
-                  </span>
-                </button>
+              <SidebarLink href="/dashboard/admin-role">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-user-round-pen-icon lucide-user-round-pen"><path d="M2 21a8 8 0 0 1 10.821-7.487"/><path d="M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"/><circle cx="10" cy="8" r="5"/></svg>
 
-                {/* Children (inside same background) */}
-                {isOpen("admin-roles") && (
-                  <ul className="pl-8 pb-2 flex flex-col gap-1">
-                    <li>
-                      <SidebarLink href="/dashboard/attendance">
-                        Real-time Attendance
-                      </SidebarLink>
-                    </li>
-                    <li>
-                      <SidebarLink href="/dashboard/transport">
-                        Transport Status
-                      </SidebarLink>
-                    </li>
-                  </ul>
-                )}
-              </div>
+                Admin Role
+              </SidebarLink>
             </li>
           </ul>
         </nav>
@@ -861,8 +829,7 @@ export default function Sidebar() {
                   strokeWidth={1.05}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="icon icon-tabler icons-tabler-outline icon-tabler-smart-home flex items-center align-middle justify-center translate-y-[-2px]"
-                >
+                  className="icon icon-tabler icons-tabler-outline icon-tabler-smart-home flex items-center align-middle justify-center translate-y-[-2px]">
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                   <path d="M19 8.71l-5.333 -4.148a2.666 2.666 0 0 0 -3.274 0l-5.334 4.148a2.665 2.665 0 0 0 -1.029 2.105v7.2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-7.2c0 -.823 -.38 -1.6 -1.03 -2.105" />
                   <path d="M16 15c-2.21 1.333 -5.792 1.333 -8 0" />
@@ -1101,8 +1068,7 @@ export default function Sidebar() {
                   strokeWidth={1.05}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="icon icon-tabler icons-tabler-outline icon-tabler-smart-home flex items-center align-middle justify-center translate-y-[-2px]"
-                >
+                  className="icon icon-tabler icons-tabler-outline icon-tabler-smart-home flex items-center align-middle justify-center translate-y-[-2px]">
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
                   <path d="M19 8.71l-5.333 -4.148a2.666 2.666 0 0 0 -3.274 0l-5.334 4.148a2.665 2.665 0 0 0 -1.029 2.105v7.2a2 2 0 0 0 2 2h12a2 2 0 0 0 2 -2v-7.2c0 -.823 -.38 -1.6 -1.03 -2.105" />
                   <path d="M16 15c-2.21 1.333 -5.792 1.333 -8 0" />

@@ -1,11 +1,21 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 "use client";
 
-import { useState, useRef, useId } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useToast } from "../../components/toast/ToastProvider";
 import { useRouter } from "next/navigation";
+
+type PendingUser = {
+  userId: string;
+  schoolId: string;
+  schoolCode: string;
+  firstName: string;
+  email: string;
+  maskedEmail: string;
+  mustChangePassword: boolean;
+} | null;
 
 function UseOtp(length = 5) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
@@ -80,6 +90,18 @@ const page = () => {
 
 
   const [isOtpOpen, setIsOtpOpen] = useState(false);
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [isSubmittingOtp, setIsSubmittingOtp] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0); // seconds
+const [resendAttempts, setResendAttempts] = useState(0); // successful resend count
+
+
+  const [authErrorMessage, setAuthErrorMessage] = useState("Invalid email address or password. Try again.");
+
+  const [pendingUser, setPendingUser] = useState<PendingUser>(null);
+
+  const [welcomeName, setWelcomeName] = useState("");
 
   const { showToast } = useToast();
   const handleCloseOtp = () => {
@@ -94,19 +116,202 @@ const page = () => {
 
   const [authError, setAuthError] = useState(false);
 
-  const handleContinue = () => {
-    // replace this with API / auth call later
-    const credentialsAreValid =
-      email === "admin@stackable.com" && password === "123456";
+  const handleContinue = async () => {
+    try {
+      setIsSubmittingLogin(true);
+      setAuthError(false);
+      setAuthErrorMessage("Invalid email address or password. Try again.");
 
-    if (!credentialsAreValid) {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAuthError(true);
+        setAuthErrorMessage(data?.error || "Login failed.");
+        return;
+      }
+
+      setPendingUser({
+        userId: data.userId,
+        schoolId: data.schoolId,
+        schoolCode: data.schoolCode,
+        firstName: data.firstName,
+        email: data.email,
+        maskedEmail: data.maskedEmail,
+        mustChangePassword: data.mustChangePassword,
+      });
+
+      setIsOtpOpen(true);
+      showToast({
+        type: "success",
+        title: "OTP sent",
+        description: `We sent a verification code to ${data.maskedEmail}.`,
+      });
+    } catch (error) {
       setAuthError(true);
+      setAuthErrorMessage("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmittingLogin(false);
+    }
+  };
 
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const otpValue = getOtp();
+
+  if (!pendingUser?.userId) {
+    showToast({
+      type: "error",
+      title: "Session lost",
+      description: "Please sign in again.",
+    });
+    setIsOtpOpen(false);
+    return;
+  }
+
+  if (otpValue.length !== 5) {
+    showToast({
+      type: "error",
+      title: "Please try again",
+      description: "Invalid email or password",
+    });
+    return;
+  }
+
+  try {
+    setIsSubmittingOtp(true);
+
+    const res = await fetch("/api/auth/verify-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId: pendingUser.userId,
+        otp: otpValue,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      showToast({
+        type: "error",
+        title: "Verification failed",
+        description: data?.error || "Invalid or expired OTP.",
+      });
       return;
     }
 
-    // ✅ success → proceed to OTP
-    setIsOtpOpen(true);
+    setWelcomeName(data?.user?.firstName || pendingUser.firstName);
+
+    showToast({
+      type: "success",
+      title: "Welcome Back!",
+      description: "You have been successfully logged in.",
+    });
+
+    setIsOtpOpen(false);
+    resetOtp();
+
+    // Step 1: Loader
+    setPageKey(generatePageKey());
+    setIsAuthTransitioning(true);
+
+    // Step 2: Welcome screen
+    setTimeout(() => {
+      setShowWelcome(true);
+    }, 1800);
+
+    // Step 3: Redirect
+    setTimeout(() => {
+      window.open(
+        "/dashboard",
+        "_blank",
+        "noopener,noreferrer"
+      );
+    }, 2500);
+
+    setTimeout(() => {
+      router.replace("/login");
+      setIsAuthTransitioning(false);
+      setShowWelcome(false);
+    }, 4000);
+
+    console.log("OTP Submitted:", otpValue);
+  } catch (error) {
+    showToast({
+      type: "error",
+      title: "Verification failed",
+      description: "Something went wrong while verifying your OTP.",
+    });
+  } finally {
+    setIsSubmittingOtp(false);
+  }
+};
+
+  const handleResendOtp = async () => {
+    if (!pendingUser?.userId) return;
+
+     if (isResendingOtp || resendCooldown > 0) return;
+
+    if (resendAttempts >= 5) {
+    showToast({
+      type: "error",
+      title: "Too many resend attempts",
+      description:
+        "This looks like a serious issue. Please contact your provider for assistance.",
+    });
+    return;
+  }
+
+    try {
+      setIsResendingOtp(true);
+      const res = await fetch("/api/auth/resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: pendingUser.userId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast({
+          type: "error",
+          title: "Resend failed",
+          description: data?.error || "Could not resend OTP.",
+        });
+        return;
+      }
+
+      resetOtp();
+
+      const nextAttempts = resendAttempts + 1;
+    setResendAttempts(nextAttempts);
+
+    // First successful resend = 30s
+    // Second successful resend = 60s
+    // Then keep increasing by 30s
+    const nextCooldown = nextAttempts * 30;
+    setResendCooldown(nextCooldown);
+
+      showToast({
+        type: "success",
+        title: "OTP Resent",
+        description: `A new code has been sent to ${data.maskedEmail}.`,
+      });
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "Resend failed",
+        description: "Something went wrong while resending your OTP.",
+      });
+    } finally {
+      setIsResendingOtp(false);
+    }
   };
 
   const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,8 +328,8 @@ const page = () => {
   const [visible, setVisible] = useState(false);
 function EyeOpen() {
   return (<svg
-    className={` hover:text-gray-500 transition cursor-pointer ${
-                    authError ? "text-red-500" : "text-[#ECB938]"
+    className={` hover:text-[#ECB938] transition duration-300 cursor-pointer ${
+                    authError ? "text-red-500" : "text-gray-600"
                   }`}
       xmlns="http://www.w3.org/2000/svg"
       width={22}
@@ -146,8 +351,8 @@ function EyeOpen() {
 function EyeClosed() {
   return (
     <svg
-                  className={` hover:text-gray-500 transition cursor-pointer  ${
-                    authError ? "text-red-500" : "text-[#ECB938]"
+                  className={` hover:text-[#ECB938] transition duration-300 cursor-pointer  ${
+                    authError ? "text-red-500" : "text-gray-500"
                   }`}
                   aria-hidden="true"
                   xmlns="http://www.w3.org/2000/svg"
@@ -168,9 +373,39 @@ const [isAuthTransitioning, setIsAuthTransitioning] = useState(false);
 const [showWelcome, setShowWelcome] = useState(false);
 
 // mock user – later replace from API / JWT
-const firstName = "Jeff";
+const firstName = "User";
 const [pageKey, setPageKey] = useState(() => generatePageKey());
 
+
+useEffect(() => {
+  if (!isOtpOpen) return;
+
+  // Initial cooldown when OTP modal opens
+  setResendCooldown(15);
+  setResendAttempts(0);
+}, [isOtpOpen]);
+
+useEffect(() => {
+  if (resendCooldown <= 0) return;
+
+  const interval = setInterval(() => {
+    setResendCooldown((prev) => {
+      if (prev <= 1) {
+        clearInterval(interval);
+        return 0;
+      }
+      return prev - 1;
+    });
+  }, 1000);
+
+  return () => clearInterval(interval);
+}, [resendCooldown]);
+
+const formatCooldown = (seconds: number) => {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+};
 
   return (
     <div key={pageKey} className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
@@ -245,7 +480,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
               >
                 Email address
               </label>
-              <div className="relative w-full">
+              <div className="relative w-full group">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="18"
@@ -257,7 +492,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={`icon icon-tabler icons-tabler-outline icon-tabler-user text-gray-600 peer-invalid:text-red-500 absolute left-3 top-1/2 -translate-y-1/2 ${
-                    authError ? "text-red-500" : "text-gray-600"
+                    authError ? "text-red-500" : "text-gray-600 group-focus-within:text-[#e3af2b] duration-300"
                   }`}
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -272,7 +507,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
             ${
               authError
                 ? "border-red-500 border-1 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
-                : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be]"
+                : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be] duration-200"
             }`}
                   required
                 />
@@ -288,7 +523,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
               >
                 Password
               </label>
-              <div className="relative w-full">
+              <div className="relative w-full group">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   width="20"
@@ -300,7 +535,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={`icon icon-tabler icons-tabler-outline icon-tabler-lock text-gray-600  invalid:text-red-600 absolute left-3 top-1/2 -translate-y-1/2  ${
-                    authError ? "text-red-500" : "text-gray-600"
+                    authError ? "text-red-500" : "text-gray-600 group-focus-within:text-[#e3af2b] duration-300"
                   }`}
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -317,13 +552,13 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
                 ${
                   authError
                     ? "border-red-500 border-1 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
-                    : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be]"
+                    : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be] duration-200"
                 }`}
                   required
                 />
                 <button 
                 type="button"
-                onClick={() => setVisible(v => !v)}
+                onClick={() => setVisible((v: boolean) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5
                 transition cursor-pointer hover:text-[#ffcd78]">
 
@@ -337,9 +572,24 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
             <button
               onClick={handleContinue}
               type="button"
-              className="w-full rounded-lg text-[18px] cursor-pointer text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] active:text-[#7D6939] active:bg-[#ffefae] active:scale-[1.0]  transition-300"
+            disabled={isSubmittingLogin}
+              className="w-full rounded-lg text-[18px] cursor-pointer text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] active:text-[#7D6939] active:bg-[#ffefae] active:scale-[1.0]  transition-300 duration-300"
             >
-              Continue
+            {isSubmittingLogin ?  (<> 
+      <span className="relative flex items-center align-middle text-center  justify-center w-full h-5">
+  <span className="relative w-5 h-5">
+    <span
+      className="absolute inset-0 rounded-full border-[2px] border-gray-100/10 border-r-[#848484] border-b-[#848484] animate-spin"
+      style={{ animationDuration: "3s" }}
+    />
+    <span
+      className="absolute inset-0 rounded-full border-[2px] border-gray-100/10 border-t-[#a9a9a9] animate-spin"
+      style={{ animationDuration: "1.5s", animationDirection: "reverse" }}
+    />
+    <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#a9a9a9]/10 via-transparent to-[#a9a9a9]/5 animate-pulse blur-[2px]" />
+  </span>
+</span>
+</>) : "Continue"}
             </button>
 
             <div className="mt-[-15px] ">
@@ -371,7 +621,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
 <div><p className="text-right text-sm mt-[-10px] mb-[30px] ">
               <Link
                 href="/forgot-passoword"
-                className="text-[#ECB938] hover:text-[#F9E38C] font-medium hover:underline"
+                className="text-[#ECB938] hover:text-[#b49b36] font-medium hover:underline duration-200"
               >
                 Forgot password?
               </Link>
@@ -390,8 +640,7 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
             {/* Google button */}
             <button
               type="button"
-              className="flex w-full h-[40px] items-center cursor-pointer justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white active:bg-black active:text-[#ebebebf1]  hover:scale-[1.02] active:scale-[1.0]  transition-300"
-            >
+              className="flex w-full h-[40px] items-center cursor-pointer justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white active:bg-black active:text-[#ebebebf1]  hover:scale-[1.02] active:scale-[1.0]  transition duration-300 ">
               <Image
                 src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/google.png"
                 alt="Google"
@@ -455,53 +704,8 @@ const [pageKey, setPageKey] = useState(() => generatePageKey());
               </button>
 
               <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const otpValue = getOtp();
-
-                  if (otpValue.length !== 5) {
-                    showToast({
-                      type: "error",
-                      title: "Please try again",
-                      description: "Invalid email or password",
-                    });
-                    return;
-                  }
-                  if (otpValue.length == 5) {
-                    showToast({
-                      type: "success",
-                      title: "Welcome Back!",
-                      description: "You have been successfully logged in.",
-                    });
-                    setIsOtpOpen(false);
-  resetOtp();
-
-  // Step 1: Loader
-  setPageKey(generatePageKey());
-  setIsAuthTransitioning(true);
-
-
-
-
-  // Step 2: Welcome screen
-  setTimeout(() => {
-    setShowWelcome(true);
-  }, 1800);
-
-  // Step 3: Redirect
-  setTimeout(() => {
-    window.open( "https://dashboard.kyfaru.com", "_blank", "noopener,noreferrer" );
-}, 2600);
- 
-setTimeout(() =>{
-  router.replace("/login");
-  setIsAuthTransitioning(false);
-  setShowWelcome(false);
-}, 4000);
-                  }
-
-                  console.log("OTP Submitted:", otpValue);
-                }}
+              
+                onSubmit={handleVerifyOtp}
                 className="space-y-6"
               >
                 {/* Icon */}
@@ -538,7 +742,7 @@ setTimeout(() =>{
                   className="flex justify-center gap-3"
                   onPaste={handlePaste}
                 >
-                  {otp.map((digit, index) => (
+                  {otp.map((digit: string, index: number) => (
                     <input
                       key={index}
                       ref={(el) => {
@@ -558,20 +762,62 @@ setTimeout(() =>{
 
                 {/* Resend */}
                 <p className="text-center text-sm text-gray-500">
-                  Didn’t get a code?{" "}
-                  <span className="font-semibold text-[#1D3D28] hover:text-[#F9B233] transition cursor-pointer">
-                    Resend
-                  </span>
-                </p>
+  Didn’t get it?{" "}
+
+  {isResendingOtp ? (
+    <span className="inline-flex items-center align-middle">
+      <span className="relative flex items-center justify-center w-full h-5">
+        <span className="relative w-3 h-3">
+          <span
+            className="absolute inset-0 rounded-full border-[2px] border-gray-100/10 border-r-[#108a00] border-b-[#108a00] animate-spin"
+            style={{ animationDuration: "3s" }}
+          />
+          <span
+            className="absolute inset-0 rounded-full border-[2px] border-gray-100/10 border-t-[#d3ffcd] animate-spin"
+            style={{ animationDuration: "4.5s" }}
+          />
+          <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#108a00]/10 via-transparent to-[#108a00]/5 animate-pulse blur-[2px]" />
+        </span>
+      </span>
+    </span>
+  ) : resendCooldown > 0 ? (
+    <span className="font-semibold text-[#1D3D28] tabular-nums">
+      {formatCooldown(resendCooldown)}
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={handleResendOtp}
+      className="font-semibold text-[#1D3D28] hover:text-[#F9B233] transition cursor-pointer"
+    >
+      Send again
+    </button>
+  )}
+</p>
 
                 {/* Button */}
                 <button
                   type="submit"
+                  disabled={isSubmittingOtp}
                   className="w-full rounded-xl bg-[#FFF4C2] py-3 text-lg font-medium text-black
                    hover:bg-[#F9E38C] hover:scale-[1.02] transform
     transition-transform duration-200 active:bg-[#ffefae] active:scale-[1] active:text-[#7D6939]"
                 >
-                  Verify OTP
+                  {isSubmittingOtp ? <> 
+      <span className="relative flex items-center align-middle text-center justify-center w-full h-5">
+  <span className="relative w-5 h-5">
+    <span
+      className="absolute inset-0 rounded-full border-[2px] border-gray-100/10 border-r-[#242424] border-b-[#242424] animate-spin"
+      style={{ animationDuration: "3s" }}
+    />
+    <span
+      className="absolute inset-0 rounded-full border-[2px] border-gray-100/10 border-t-[#383838] animate-spin"
+      style={{ animationDuration: "1.5s", animationDirection: "reverse" }}
+    />
+    <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#383838]/10 via-transparent to-[#383838]/5 animate-pulse blur-[2px]" />
+  </span>
+</span>
+</> : "Verify OTP"}
                 </button>
               </form>
             </div>
@@ -603,7 +849,7 @@ setTimeout(() =>{
   <div className="fixed inset-0 z-110 flex items-center text-center justify-center bg-[#F7F9E2] h-[100vh] w-full">
     <h1 className="text-[64px] font-bold text-black">
       Welcome back{" "}
-      <span className="text-[#30693E]">{firstName}!</span>
+      <span className="text-[#30693E]">{welcomeName || pendingUser?.firstName || "User"}!</span>
     </h1>
   </div>
 )}

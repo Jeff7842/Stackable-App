@@ -46,7 +46,7 @@ const ProfileModal = ({ open, onClose }: ProfileModalProps) => {
         {/* Modal content goes here */}
         <div
         ref={modalRef}
-          className={`absolute left-[76rem] top-[40px] 
+          className={`fixed left-[76rem] top-[40px] 
           w-75 h-85 bg-white rounded-[25px] shadow-xl z-[100] overflow-hidden flex flex-col transform transition-all duration-300 ease-out ${
           open
             ? 'opacity-100 translate-y-0'

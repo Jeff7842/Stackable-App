@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         hostname: 'ceuppatdypoutimqdglm.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'fra.cloud.appwrite.io',
+        pathname: '/v1/storage/buckets/69ac40470009f698eaa6/files/**',
+      },
     ],
   },
 };
