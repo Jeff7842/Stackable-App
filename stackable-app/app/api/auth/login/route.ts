@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import { Resend } from 'resend';
 import { createSupabaseClient } from '@/lib/supabase/supabase-admin';
 import { generateOtp, getClientIp, getUserAgent, maskEmail } from '@/lib/auth-utils';
-import OtpEmail from '@/components/email/otp-email';
+import { qstash } from "@/lib/qeue/qstash";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -67,21 +67,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Failed to create OTP.' }, { status: 500 });
     }
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL;
-    if (!fromEmail) {
-      return NextResponse.json({ error: 'Missing RESEND_FROM_EMAIL.' }, { status: 500 });
-    }
-
-    const { error: sendError } = await resend.emails.send({
-      from: fromEmail,
-      to: user.email,
-      subject: 'Your Stackable verification code',
-      react: OtpEmail({ firstName: user.first_name, otpCode }),
-    });
-
-    if (sendError) {
-      return NextResponse.json({ error: 'Login succeeded but OTP email failed to send.' }, { status: 500 });
-    }
+    await qstash.publishJSON({
+  url: `${process.env.APP_BASE_URL}/api/job/send-otp-email`,
+  body: {
+    email: user.email,
+    firstName: user.first_name,
+    otpCode,
+  },
+});
 
     return NextResponse.json({
       ok: true,
@@ -92,7 +85,7 @@ export async function POST(req: Request) {
       maskedEmail: maskEmail(user.email),
       firstName: user.first_name,
       mustChangePassword: !!user.must_change_password,
-      message: 'OTP sent successfully.',
+      message: 'Verification code is being sent.',
     });
   } catch (error) {
     console.error('login route error', error);
