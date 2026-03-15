@@ -5,7 +5,7 @@ import { createSupabaseClient } from '@/lib/supabase/supabase-admin';
 import { generateOtp, getClientIp, getUserAgent, maskEmail } from '@/lib/auth-utils';
 import { qstash } from "@/lib/qeue/qstash";
 //import { pingram } from "@/lib/pingram/pingram";
-import { infobip } from "@/lib/infobib/infobib";
+//import { infobip } from "@/lib/infobib/infobib";
 
 
 //const resend = new Resend(process.env.RESEND_API_KEY);
@@ -114,7 +114,7 @@ const phoneNumber = `${normalizedPhone}`;
   sms: {
     message: `Hi ${user.first_name}, Your verification code is: ${otpCode}. Reply STOP to opt-out.`
   }
-});*/
+});
 
 try {
   const response = await infobip.channels.sms.send({
@@ -142,7 +142,7 @@ try {
 } catch (smsError) {
   console.error("Infobip SMS failed:", smsError);
   // Do not fail login if email OTP is already queued
-}
+}*/
 
     return NextResponse.json({
       ok: true,
