@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
     const fromEmail = process.env.RESEND_FROM_EMAIL;
     if (!fromEmail) {
-      return NextResponse.json({ error: 'Missing RESEND_FROM_EMAIL.' }, { status: 500 });
+      return NextResponse.json({ error: 'Missing Credentials.' }, { status: 500 });
     }
 
     const { error: sendError } = await resend.emails.send({

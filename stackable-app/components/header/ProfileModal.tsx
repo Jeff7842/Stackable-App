@@ -65,18 +65,18 @@ const ProfileModal = ({ open, onClose }: ProfileModalProps) => {
             <Image
               src="/images/653.jpg"
               alt="Profile cover"
-              className="w-full h-full object-cover  hover:scale-[1.1]
-              transition-all duration-4000"
+              className={`w-full h-full object-cover  hover:scale-[1.1]
+              transition-all duration-4000`}
               width={500}
               height={500}/>
         
             {/* Avatar */}
             <div
-              className="absolute bottom-[-40px] left-1/2 -translate-x-1/2
+              className={`absolute bottom-[-40px] left-1/2 -translate-x-1/2
               bg-white p-1 rounded-full w-20 h-20
               flex items-center justify-center
               cursor-pointer hover:scale-[1.03]
-              transition-all duration-300"
+              transition-all duration-300`}
             >
               <Image src='/images/5739662.jpg'
                 alt="User avatar"

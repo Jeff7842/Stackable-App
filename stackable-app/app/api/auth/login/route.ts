@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { Resend } from 'resend';
+//import { Resend } from 'resend';
 import { createSupabaseClient } from '@/lib/supabase/supabase-admin';
 import { generateOtp, getClientIp, getUserAgent, maskEmail } from '@/lib/auth-utils';
 import { qstash } from "@/lib/qeue/qstash";
+//import { pingram } from "@/lib/pingram/pingram";
+import { infobip } from "@/lib/infobib/infobib";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+
+//const resend = new Resend(process.env.RESEND_API_KEY);
+
 
 export async function POST(req: Request) {
   try {
@@ -19,7 +23,7 @@ export async function POST(req: Request) {
 
     const { data: user, error } = await createSupabaseClient
       .from('users')
-      .select('id, school_id, school_code, email, password_hash, first_name, last_name, role, status, must_change_password')
+      .select('id, school_id, school_code, email, phone, phone_2, password_hash, first_name, last_name, role, status, must_change_password')
       .eq('email', email)
       .maybeSingle();
 
@@ -68,13 +72,77 @@ export async function POST(req: Request) {
     }
 
     await qstash.publishJSON({
-  url: `${process.env.APP_BASE_URL}/api/job/send-otp-email`,
+  url: `${process.env.APP_BASE_URL}/api/jobs/send-otp-email`,
   body: {
     email: user.email,
     firstName: user.first_name,
     otpCode,
   },
 });
+
+const rawPhone = String(user.phone ?? user.phone_2 ?? "").trim();
+
+// Remove everything except digits
+let normalizedPhone = rawPhone.replace(/\D/g, "");
+
+// Convert local formats to 2547XXXXXXXX / 2541XXXXXXXX
+if (normalizedPhone.startsWith("0")) {
+  normalizedPhone = "254" + normalizedPhone.slice(1);
+}
+
+// Convert 7XXXXXXXX or 1XXXXXXXX to 2547XXXXXXXX / 2541XXXXXXXX
+if (/^[71]\d{8}$/.test(normalizedPhone)) {
+  normalizedPhone = "254" + normalizedPhone;
+}
+
+// Final validation for Kenya mobile numbers
+if (!/^254[17]\d{8}$/.test(normalizedPhone)) {
+  return NextResponse.json(
+    { error: "Invalid or missing phone number." },
+    { status: 400 }
+  );
+}
+
+const phoneNumber = `${normalizedPhone}`;
+
+/*await pingram.send({
+  type: 'stackable_security_code',
+  to: {
+    id:String(user.school_id ?? user.id),
+    number:`+254${user.phone ?? user.phone_2}`, // Replace with your phone number, use format [+][country code][area code][local number]
+  },
+  sms: {
+    message: `Hi ${user.first_name}, Your verification code is: ${otpCode}. Reply STOP to opt-out.`
+  }
+});*/
+
+try {
+  const response = await infobip.channels.sms.send({
+    messages: [
+      {
+        sender: process.env.INFOBIP_SENDER || "ServiceSMS",
+        destinations: [{ to: phoneNumber}],
+        content: {
+          text: `Hi ${user.first_name}, your verification code is ${otpCode}. If you did not request it, please ignore this message.`,
+        },
+      },
+    ],
+    headers: {
+      Authorization: `App ${process.env.INFOBIP_API_KEY}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+  });
+
+  console.log("Infobip SMS response:", {
+  status: response?.messages?.[0]?.status,
+  to: response?.messages?.[0]?.to,
+  messageId: response?.messages?.[0]?.messageId,
+});
+} catch (smsError) {
+  console.error("Infobip SMS failed:", smsError);
+  // Do not fail login if email OTP is already queued
+}
 
     return NextResponse.json({
       ok: true,

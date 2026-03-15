@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
         hostname: 'fra.cloud.appwrite.io',
         pathname: '/v1/storage/buckets/69ac40470009f698eaa6/files/**',
       },
+      {
+        protocol: "https",
+        hostname: "i.pravatar.cc",
+      },
     ],
   },
 };

@@ -29,7 +29,7 @@ const [mobileMenu, setMobileMenu] = useState(false);
 
   return (
     <>
-      <header className="fixed top-0 left-0 lg:left-64 right-0 bg-[#F6F6F6] mt-4 z-10 ">
+      <header className="fixed top-0 left-0 lg:left-64 right-0 bg-[#F6F6F6] pt-4 z-10 ">
         <div className="flex items-center h-16 px-6 mb-4">
           <button
   className="lg:hidden p-2 rounded-full bg-white shadow"
@@ -47,7 +47,7 @@ const [mobileMenu, setMobileMenu] = useState(false);
           <div className="relative hidden md:block w-72 lg:w-96 rounded-[25px] overflow-hidden border border-white focus:outline-2 focus:outline-amber-300  bg-white">
             {/* Button */}
             <button
-              className="absolute left-[4px] top-1/2 -translate-y-1/2
+              className={`absolute left-[4px] top-1/2 -translate-y-1/2
       rounded-full w-11 h-11
       bg-gray-200 flex items-center justify-center
       cursor-pointer
@@ -55,7 +55,7 @@ const [mobileMenu, setMobileMenu] = useState(false);
       hover:scale-[1.06]
       hover:text-gray-500
       transition-all duration-300
-    "
+    `}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -82,11 +82,11 @@ const [mobileMenu, setMobileMenu] = useState(false);
           </div>
 
           <button
-            className="bg-white p-2 w-11 h-11 rounded-full flex items-center justify-center ml-2 cursor-pointer
+            className={`bg-white p-2 w-11 h-11 rounded-full flex items-center justify-center ml-2 cursor-pointer
       hover:bg-[#000000]
       hover:scale-[1.03]
       hover:text-gray-100
-      transition-all duration-300"
+      transition-all duration-300`}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -111,8 +111,8 @@ const [mobileMenu, setMobileMenu] = useState(false);
           <div className="ml-auto flex gap-4 items-center">
             <button
               onClick={toggleTheme}
-              className=" bg-white dark:bg-white p-2 w-11 h-11 rounded-full flex items-center justify-center ml-auto cursor-pointer hover:bg-black dark:hover:bg-white hover:scale-[1.03]  hover:text-gray-100 dark:hover:text-black transition-all duration-300
-      "
+              className={`{"w-full font-open  py-3 px-3 text-[14px] rounded-full bg-black text-white outline-2 active:text-[#ffffff] active:outline-1 active:outline-[#d7ac00] active:bg-[#d7ac00]
+                hover:bg-[#d79300] hover:text-gray-50 hover:scale-[1.01] cursor-pointer hover:outline-1 hover:outline-[#d79300] hover:shadow-2xl transition-all duration-300"}`}
               aria-label="Toggle dark mode"
             >
               {dark ? (
@@ -151,11 +151,11 @@ const [mobileMenu, setMobileMenu] = useState(false);
               )}
             </button>
             <button
-              className="bg-white p-2 w-11 h-11 rounded-full flex items-center justify-center ml-2 cursor-pointer
+              className={`bg-white p-2 w-11 h-11 rounded-full flex items-center justify-center ml-2 cursor-pointer
       hover:bg-[#000000]
       hover:scale-[1.06]
       hover:text-gray-100
-      transition-all duration-300"
+      transition-all duration-300`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -177,7 +177,7 @@ const [mobileMenu, setMobileMenu] = useState(false);
             <div className="relative w-63 rounded-[25px] overflow-hidden border border-white focus:outline-2 focus:outline-amber-300  bg-white">
               {/* Button */}
               <button
-                className="absolute left-[4px] top-1/2 -translate-y-1/2
+                className={`absolute left-[4px] top-1/2 -translate-y-1/2
       rounded-full w-11 h-11
       bg-gray-200 flex items-center justify-center
       cursor-pointer
@@ -185,7 +185,7 @@ const [mobileMenu, setMobileMenu] = useState(false);
       hover:scale-[1.06]
       hover:text-gray-500
       transition-all duration-300
-    "
+    `}
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -204,11 +204,11 @@ const [mobileMenu, setMobileMenu] = useState(false);
                 </svg>
               </button>
               <div
-                className="absolute left-[2px] top-1/2 -translate-y-1/2 flex items-center justify-center
+                className={`absolute left-[2px] top-1/2 -translate-y-1/2 flex items-center justify-center
       cursor-pointer
       hover:scale-[1.03]
       hover:grayscale-70
-      transition-all duration-300"
+      transition-all duration-300`}
               >
                 <Image
                   src="/images/5739662.jpg"
@@ -251,8 +251,9 @@ const [mobileMenu, setMobileMenu] = useState(false);
         </div>
         <div className="border-b border-gray-400 w-[98%] ml-3"></div>
       </header>
-
+      <div className="flex w-full relative">
       <ProfileModal open={open} onClose={() => setOpen(false)} />
+        </div>
     </>
   );
 }

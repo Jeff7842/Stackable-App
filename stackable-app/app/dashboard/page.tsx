@@ -1,6 +1,5 @@
 import React from 'react';
 import Card from '@/components/cards/card';
-import BreadCrumb from '@/components/breadcrumb/bread';
 import { School, Wallet, Users, BarChart2 } from "lucide-react";
 import Script from 'next/script';
 import CalendarSummary from '@/components/Calender/widget';
@@ -12,7 +11,6 @@ export default function DashboardPage(){
   return (
     <>
     <div className='bg-[#F6F6F6] px-2'>
-      <BreadCrumb/>
 
       <h1 className='font-bold font-image text-[22px] mt-[10px]'>Dashboard Overview</h1>
       <div className="grid grid-cols-1 md:grid-cols-[repeat(2,minmax(305px,_1fr))] xl:grid-cols-[repeat(4,minmax(295px,_1fr))] 3xl:grid-cols-[repeat(4,minmax(420px,_1fr))] gap-5 mb-5 items-center px-1.5 py-4 justify-center" >
