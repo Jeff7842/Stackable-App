@@ -32,6 +32,12 @@ type SchoolOption = {
   name: string;
 };
 
+type Classes = {
+  id: string;
+  class_name: string;
+  stream: string | null;
+};
+
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function formatDate(value: string | null) {
@@ -50,6 +56,13 @@ function getStudentName(student: StudentRow) {
   const last = student.last_name?.trim() ?? "";
   const full = `${first} ${last}`.trim();
   return full || "Unnamed student";
+}
+
+function formatClassName(classItem: Classes | null | undefined) {
+  if (!classItem) return "—";
+  return classItem.stream
+    ? `${classItem.class_name} ${classItem.stream}`
+    : classItem.class_name;
 }
 
 function getInitials(student: StudentRow) {
@@ -112,6 +125,7 @@ export default function StudentsPage() {
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [classes, setClasses] = useState<Classes[]>([]);
 
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [search, setSearch] = useState("");
@@ -125,7 +139,7 @@ export default function StudentsPage() {
   const fetchPageData = useCallback(async () => {
     setLoading(true);
 
-    const [studentsRes, schoolsRes] = await Promise.all([
+    const [studentsRes, schoolsRes, classesRes] = await Promise.all([
       supabase
         .from("students")
         .select(`
@@ -146,6 +160,9 @@ export default function StudentsPage() {
         `)
         .order("created_at", { ascending: false }),
       supabase.from("schools").select("id, name").order("name", { ascending: true }),
+      supabase
+          .from("classes")
+          .select("id, class_name, stream"),
     ]);
 
     if (studentsRes.error) {
@@ -153,6 +170,12 @@ export default function StudentsPage() {
     } else {
       setStudents((studentsRes.data as StudentRow[]) ?? []);
     }
+
+    if (classesRes.error) {
+        console.error("Classes fetch failed:", classesRes.error);
+      } else {
+        setClasses((classesRes.data as Classes[]) ?? []);
+      }
 
     if (schoolsRes.error) {
       console.error("Schools fetch failed:", schoolsRes.error);
@@ -250,6 +273,11 @@ export default function StudentsPage() {
     const start = (page - 1) * pageSize;
     return filteredStudents.slice(start, start + pageSize);
   }, [filteredStudents, page, pageSize]);
+
+  const classMap = useMemo(
+      () => new Map(classes.map((item) => [item.id, item])),
+      [classes],
+    );
 
   const pageStart = totalEntries === 0 ? 0 : (page - 1) * pageSize + 1;
   const pageEnd = Math.min(page * pageSize, totalEntries);
@@ -527,7 +555,9 @@ export default function StudentsPage() {
                 <option value="all">All classes</option>
                 {classOptions.map((classId) => (
                   <option key={classId} value={classId}>
-                    {formatClassLabel(classId)}
+                   {formatClassName(
+                                classMap.get(classId) || null
+                              )}
                   </option>
                 ))}
               </select>
@@ -638,7 +668,9 @@ export default function StudentsPage() {
 
                       <td className="px-5 py-4">{student.school_name}</td>
 
-                      <td className="px-5 py-4">{formatClassLabel(student.class_id)}</td>
+                      <td className="px-5 py-4">{formatClassName(
+                                student.class_id ? classMap.get(student.class_id) : null,
+                              )}</td>
 
                       <td className="px-5 py-4">
                         <div className="space-y-1">
@@ -816,7 +848,9 @@ export default function StudentsPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wide text-gray-400">Class</p>
                     <p className="mt-1 font-medium text-gray-800">
-                      {formatClassLabel(student.class_id)}
+                      {formatClassName(
+                                student.class_id ? classMap.get(student.class_id) : null,
+                              )}
                     </p>
                   </div>
 

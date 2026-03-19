@@ -34,6 +34,23 @@ function getStatusClasses(status: string) {
   }
 }
 
+function scoreToGrade(score: number | null | undefined) {
+  if (score == null) return "—";
+
+  if (score >= 11.5) return "A";
+  if (score >= 10.5) return "B+";
+  if (score >= 9.5) return "B";
+  if (score >= 8.5) return "B-";
+  if (score >= 7.5) return "C+";
+  if (score >= 6.5) return "C";
+  if (score >= 5.5) return "C-";
+  if (score >= 4.5) return "D+";
+  if (score >= 3.5) return "D";
+  if (score >= 2.5) return "D-";
+  if (score >= 1.5) return "E";
+  return "F";
+}
+
 export default async function StudentDetailPage({
   params,
 }: {
@@ -56,6 +73,14 @@ export default async function StudentDetailPage({
     .single();
 
   if (error || !data) notFound();
+
+  const { data: averageGradeRow } = await supabase
+    .from("student_average_grade")
+    .select("avg_score")
+    .eq("student_id", id)
+    .single();
+
+  const averageGrade = scoreToGrade(averageGradeRow?.avg_score);
 
   const fullName =
     `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim() ||
@@ -121,7 +146,7 @@ export default async function StudentDetailPage({
               ["Home Address", data.home_address || "—"],
               ["Emergency Contact", data.emergency_contact || "—"],
               ["Health Status", data.health_status || "—"],
-              ["Average Grade", data.average_grade || "—"],
+              ["Average Grade", averageGrade || "—"],
               ["Other Info", data.other_info || "—"],
             ].map(([label, value]) => (
               <div
