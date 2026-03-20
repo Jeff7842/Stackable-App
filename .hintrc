@@ -16,6 +16,8 @@
         "button-name": "off"
       }
     ],
-    "typescript-config/is-valid": "off"
+    "typescript-config/is-valid": "off",
+    "no-inline-styles": "off",
+    "disown-opener": "off"
   }
 }

@@ -68,7 +68,7 @@ export default function OtpEmail({ firstName,otpCode }: OtpEmailProps) {
                   margin: "0 0 12px",
                 }}
               >
-                Let's log you in
+                Let&apos;s log you in
               </div>
 
               <div
@@ -140,7 +140,7 @@ export default function OtpEmail({ firstName,otpCode }: OtpEmailProps) {
                   color: "#6b7280",
                 }}
               >
-                If you didn't request this email, you can safely ignore it
+                If you didn&apos;t request this email, you can safely ignore it
               </div>
 
               <table
