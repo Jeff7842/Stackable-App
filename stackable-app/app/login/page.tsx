@@ -414,11 +414,11 @@ const formatCooldown = (seconds: number) => {
         {/* Background image */}
         <div className="absolute inset-0 overflow-hidden mt-10">
           <Image
-            src="/images/teacher.png"
-            alt="Teacher"
+            src="/images/student-using-stackable.png"
+            alt="Student"
             className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            width={500}
-            height={500}
+            width={4500}
+            height={4500}
           />
         </div>
         {/* Dark overlay */}
