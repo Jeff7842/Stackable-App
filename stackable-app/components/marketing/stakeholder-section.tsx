@@ -76,6 +76,7 @@ export const ecosystemCards = [
     icon: Users,
     bg: "bg-[#f4d88a] dark:bg-[#6b5207]",
     text: "text-[#251a00] dark:text-[#fff7dd]",
+    full: false,
   },
   {
     eyebrow: "For Teachers",
@@ -85,7 +86,7 @@ export const ecosystemCards = [
     icon: GraduationCap,
     bg: "bg-[linear-gradient(135deg,rgba(110,244,156,0.9),rgba(16,133,72,0.8))] dark:bg-[linear-gradient(135deg,rgba(18,102,59,1),rgba(11,69,39,1))]",
     text: "text-[#06210f] dark:text-[#ebfff2]",
-    wide: true,
+    full: true,
   },
   {
     eyebrow: "For Admins",
@@ -130,11 +131,11 @@ export function RippleButton({
   children,
   className,
   href,
-}: {
+ }: {
   children: React.ReactNode;
   className?: string;
   href?: string;
-}) {
+ }) {
   const [ripples, setRipples] = useState<Array<{ x: number; y: number; id: number }>>([]);
 
   const onClick = (e: React.MouseEvent<HTMLAnchorElement | HTMLButtonElement>) => {
