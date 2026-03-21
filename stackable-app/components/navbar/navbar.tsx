@@ -187,7 +187,7 @@ export function Navbar() {
             />
           </div>
           <span className="text-sm font-extrabold tracking-tight sm:hidden">
-            Stackable Academy
+            Stackable
           </span>
         </Link>
 

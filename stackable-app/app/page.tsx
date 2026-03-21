@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
+  ArrowUpRight,
   GraduationCap,
   Building2,
   Users,
@@ -160,20 +161,25 @@ function RippleButton({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const id = Date.now();
+
     setRipples((prev) => [...prev, { x, y, id }]);
+
     setTimeout(() => {
       setRipples((prev) => prev.filter((r) => r.id !== id));
     }, 700);
   };
 
   const shared = cn(
-    "relative overflow-hidden isolate inline-flex items-center justify-center rounded-full transition-all duration-300 active:scale-[0.98]",
+    "relative isolate inline-flex items-center justify-center overflow-hidden rounded-full will-change-transform active:scale-[0.98]",
     className,
   );
 
   const content = (
     <>
-      {children}
+      <span className="relative z-10 flex items-center justify-center">
+        {children}
+      </span>
+
       {ripples.map((r) => (
         <span
           key={r.id}
@@ -186,16 +192,27 @@ function RippleButton({
 
   if (href) {
     return (
-      <a href={href} onClick={onClick} className={shared}>
+      <motion.a
+        href={href}
+        onClick={onClick}
+        className={shared}
+        whileHover={{ y: -4, scale: 1.006 }}
+        transition={{ duration: 0.02, ease: [0.22, 1, 0.36, 1] }}
+      >
         {content}
-      </a>
+      </motion.a>
     );
   }
 
   return (
-    <button onClick={onClick} className={shared}>
+    <motion.button
+      onClick={onClick}
+      className={shared}
+      whileHover={{ y: -4, scale: 1.00 }}
+      transition={{ duration: 0.02, ease: [0.22, 1, 0.36, 1] }}
+    >
       {content}
-    </button>
+    </motion.button>
   );
 }
 
@@ -240,16 +257,23 @@ function CountUp({
 function SectionReveal({
   children,
   className = "",
+  delay = 0,
+  duration = 0.75,
 }: {
   children: React.ReactNode;
   className?: string;
+  delay?: number;
+  duration?: number;
 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ 
+        duration,
+        delay,
+        ease: [0.32, 1, 0.46, 1] }}
       className={className}
     >
       {children}
@@ -279,8 +303,11 @@ export default function StackableAcademyLandingPage() {
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(16,133,72,0.18),transparent_40%),radial-gradient(circle_at_bottom_right,rgba(255,195,0,0.18),transparent_35%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(16,133,72,0.45),transparent_45%),radial-gradient(circle_at_bottom_right,rgba(255,195,0,0.12),transparent_35%)]" />
           <div className="mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-12">
-            <SectionReveal className="relative z-10 lg:col-span-7">
-              <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-[#108548]/10 bg-white/55 px-4 py-2 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
+            <SectionReveal className="relative z-10 lg:col-span-7"
+            delay={0.20}
+  duration={1.5}>
+              <div 
+              className="mb-6 inline-flex items-center gap-3 rounded-full border border-[#108548]/10 bg-white/55 px-4 py-2 backdrop-blur-xl dark:border-white/10 dark:bg-white/5">
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[#108548] shadow-[0_0_16px_rgba(16,133,72,0.85)]">
                   <span className="absolute inset-0 animate-ping rounded-full bg-[#108548]/60" />
                 </span>
@@ -288,6 +315,13 @@ export default function StackableAcademyLandingPage() {
                   A New Era of Education
                 </span>
               </div>
+
+              <motion.div
+              initial={{ opacity: 0,  y: 24 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.2 }}
+  transition={{ duration: 1, delay: 0.30, ease: [0.22, 1, 0.36, 1] }}
+  >
 
               <h1 className="max-w-3xl text-5xl font-extrabold leading-[0.92] tracking-[-0.05em] text-[#111714] md:text-7xl lg:text-[5.5rem] dark:text-white">
                 Architecting
@@ -303,27 +337,47 @@ export default function StackableAcademyLandingPage() {
                 platform where work becomes lighter and learning becomes
                 sharper, faster, and more engaging.
               </p>
+              </motion.div>
 
-              <div className="mt-9 flex flex-wrap gap-4">
+              <motion.div 
+              initial={{ opacity: 0,  y: 24 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.2 }}
+  transition={{ duration: 1, delay: 0.65, ease: [0.22, 1, 0.36, 1] }}
+              className="mt-9 flex flex-wrap gap-4">
                 <RippleButton
                   href="#story"
-                  className="bg-[#FFC300] px-7 py-4 text-sm font-extrabold text-[#251a00] shadow-[0_18px_40px_rgba(255,195,0,0.18)] hover:-translate-y-1 hover:shadow-[0_22px_46px_rgba(255,195,0,0.24)]"
+                  className="bg-[#FFC300] group px-7 py-4 text-sm font-extrabold text-[#251a00] shadow-[0_18px_40px_rgba(255,195,0,0.18)] ease-[cubic-bezier(0.22,1,0.36,1)] hover:-translate-y-0.5 hover:shadow-[0_22px_46px_rgba(255,195,0,0.24)] transition-shadow duration-500"
                 >
-                  Explore the Platform
+                  <span className="inline-flex items-center">
+    Explore the Platform
+    <ArrowUpRight className="ml-2 h-0 w-0 opacity-0 -mr-2 text-[#1B4332] -translate-x-1 transition-all duration-800 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:mr-0 group-hover:w-5 group-hover:h-5 group-hover:translate-x-1.5 group-hover:opacity-100" />
+  </span>
                 </RippleButton>
 
                 <RippleButton
                   href="#academy"
-                  className="border border-black/10 bg-white/65 px-7 py-4 text-sm font-bold text-[#1B4332] backdrop-blur-xl hover:-translate-y-1 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                  className="group border border-black/10 bg-white/65 px-7 py-4 text-sm font-bold text-[#1B4332] backdrop-blur-xl over:-translate-y-0.5 hover:bg-white dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 ease-[cubic-bezier(0.22,1,0.36,1)] transition-colors duration-500"
                 >
-                  Our Methodology
+                  <span className="inline-flex items-center">
+                    Our Methodology
+                    <ArrowRight className="ml-2 h-5 w-5 opacity-0 -mr-7 text-[#FFC300] -translate-x-2 transition-all duration-800 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:mr-0.5 group-hover:translate-x-2 group-hover:opacity-100" />
+                  </span>
                 </RippleButton>
-              </div>
+              </motion.div>
             </SectionReveal>
 
-            <SectionReveal className="relative lg:col-span-5">
-              <div className="relative mx-auto max-w-[34rem]">
-                <div className="overflow-hidden rounded-[2rem] border border-white/40 bg-white/60 shadow-[0_30px_80px_rgba(15,23,20,0.15)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/5">
+            <SectionReveal className="relative lg:col-span-5"
+            delay={0.65}
+  duration={2.55}>
+              <motion.div
+  initial={{ opacity: 0,  y: 24 }}
+  whileInView={{ opacity: 1, y: 0 }}
+  viewport={{ once: true, amount: 0.2 }}
+  transition={{ duration: 1, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
+  className="relative mx-auto max-w-[34rem]"
+>
+                <div className="overflow-hidden rounded-[2rem] border border-white/40 bg-white/60 shadow-[0_30px_80px_rgba(15,23,20,0.15)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/5 duration-700">
                   <div className="aspect-[4/5] overflow-hidden rounded-[2rem]">
                     <img
                       src={
@@ -338,8 +392,11 @@ export default function StackableAcademyLandingPage() {
                 </div>
 
                 <motion.div
-                  whileHover={{ y: -6, scale: 1.02 }}
-                  className="absolute -bottom-8 sm:-left-8 left-0 rounded-2xl border border-white/50 bg-white/80 p-5 shadow-[0_22px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1511]/85"
+  initial={{ opacity: 0, y:36, scale: 1.00 }}
+                  whileInView={{ opacity: 1, y: -6, scale: 1.02 }}
+                  viewport={{ once: true, amount: 0.3 }}
+  transition={{ duration: 2.0, delay: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute -bottom-8 sm:-left-8 left-0 rounded-2xl border border-white/50 bg-white/85 p-5 shadow-[0_22px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1511]/85"
                 >
                   <div className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-[#785a00] dark:text-[#FFC300]">
                     Live Metric
@@ -352,7 +409,7 @@ export default function StackableAcademyLandingPage() {
                     operations.
                   </p>
                 </motion.div>
-              </div>
+              </motion.div>
             </SectionReveal>
           </div>
         </section>
@@ -555,7 +612,7 @@ export default function StackableAcademyLandingPage() {
                       whileHover={{ x: 6 }}
                       className="flex items-start gap-4"
                     >
-                      <div className="inline-flex h-12 w-12 items-center justify-center py-2 px-4 rounded-xl bg-[#FFC300]/15 text-[#785a00] dark:bg-[#FFC300]/10 dark:text-[#FFC300]">
+                      <div className="inline-flex h-10 w-12 items-center justify-center p-2.5 rounded-xl bg-[#FFC300]/15 text-[#785a00] dark:bg-[#FFC300]/10 dark:text-[#FFC300]">
                         <Icon className="h-24 w-24" />
                       </div>
                       <div>

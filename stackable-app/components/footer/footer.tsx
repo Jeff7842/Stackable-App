@@ -2,6 +2,7 @@
 
 import React, { useMemo } from "react";
 import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 
 
 export function Footer() {
@@ -12,7 +13,26 @@ export function Footer() {
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-10 md:grid-cols-4">
             <div>
-              <h3 className="text-lg font-extrabold text-[#FFC300]">Stackable Academy</h3>
+              <div className="flex w-full items-center justify-start gap-3">
+  <div className="inline-flex h-20 w-20 items-center justify-center">
+    <Image
+      src="/logos/Symbol.webp"
+      alt="Stackable logo"
+      width={1000}
+      height={1000}
+      className="h-full w-full object-contain"
+    />
+  </div>
+<div className="inline-flex h-auto w-40 items-center justify-center">
+    <Image
+      src="/logos/light-text.webp"
+      alt="Stackable logo"
+      width={1500}
+      height={1500}
+      className="h-full w-full object-contain"
+    />
+  </div>
+</div>
               <p className="mt-5 max-w-xs text-sm leading-7 text-white/70">
                 Building the operational foundation for smarter schools, better coordination, and stronger academic execution at scale.
               </p>
