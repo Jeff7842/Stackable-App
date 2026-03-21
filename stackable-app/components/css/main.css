@@ -1,0 +1,180 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+ 
+ 
+ 
+ @keyframes ripple {
+          0% { transform: translate(-50%, -50%) scale(0); opacity: .55; }
+          100% { transform: translate(-50%, -50%) scale(14); opacity: 0; }
+        }
+
+        html { scroll-behavior: smooth; }
+
+        body {
+          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+        }
+
+
+        @import "tailwindcss";
+
+:root {
+  --background: #f9f9f8;
+  --foreground: #111714;
+  --description-foreground: #5d6a70;
+
+  --surface: #ffffff;
+  --surface-muted: #f0f2ef;
+  --border: rgba(17, 23, 20, 0.08);
+
+  --primary: #108548;
+  --primary-foreground: #ffffff;
+
+  --accent: #ffc300;
+  --accent-foreground: #251a00;
+
+  --muted-foreground: #5d6b70;
+
+  --nav-bg: rgba(255, 255, 255, 0.7);
+  --card-bg: rgba(255, 255, 255, 0.8);
+}
+
+.dark {
+  --background: #08100d;
+  --foreground: #edf4ee;
+  --description-foreground:#b5c4bb;
+
+  --surface: #101916;
+  --surface-muted: #0d1613;
+  --border: rgba(255, 255, 255, 0.1);
+
+  --primary: #108548;
+  --primary-foreground: #ffffff;
+
+  --accent: #ffc300;
+  --accent-foreground: #251a00;
+
+  --muted-foreground: #b7c6bd;
+
+  --nav-bg: rgba(8, 16, 13, 0.75);
+  --card-bg: rgba(11, 21, 17, 0.85);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-plus-jakarta-sans), system-ui, sans-serif;
+  background-color: var(--background);
+  color: var(--foreground);
+  transition:
+    background-color 250ms ease,
+    color 250ms ease,
+    border-color 250ms ease,
+    box-shadow 250ms ease;
+}
+
+/* Explicitly what you asked for */
+.dark body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Optional explicit light selector */
+body,
+.light body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border-color: var(--border);
+}
+
+img,
+svg,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+a,
+button {
+  transition:
+    background-color 220ms ease,
+    color 220ms ease,
+    border-color 220ms ease,
+    transform 220ms ease,
+    box-shadow 220ms ease;
+}
+
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-inter), system-ui, sans-serif;
+    color: var(--foreground);
+  }
+
+  p {
+    font-family: var(--font-poppins), system-ui, sans-serif;
+    color: inherit;
+  }
+}
+
+@layer utilities {
+  .bg-app {
+    background-color: var(--background);
+  }
+
+  .text-app {
+    color: var(--foreground);
+  }
+
+  .bg-surface {
+    background-color: var(--surface);
+  }
+
+  .bg-surface-muted {
+    background-color: var(--surface-muted);
+  }
+
+  .text-muted {
+    color: var(--muted-foreground);
+  }
+
+  .border-app {
+    border-color: var(--border);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(14);
+    opacity: 0;
+  }
+}
+
+.philosophy-description{
+    color:var(--description-foreground);
+}
+
+.dark .philosophy-description{
+    color:var(--description-foreground);
+}
+
+.CTA-header{
+  color: var(--primary-foreground);
+}
+
+.dark .CTA-header{
+  color: var(--primary-foreground);
+}

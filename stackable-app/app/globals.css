@@ -1,9 +1,13 @@
 @import "tailwindcss";
-
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 @theme inline {
@@ -15,15 +19,9 @@
   --font-heading: var(--font-poppins);
   --font-body: var(--font-inter);
   --font-image: var(--font-Acumin);
+  --font-main: var(--font-plus-jakarta-sans);
 
   
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #ffffff;
-    --foreground: #000000;
-  }
 }
 
 @layer base {
@@ -67,7 +65,23 @@
 
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: #f9f9f8;
+  color: #111714;
+  font-family:var(--font-plus-jakarta-sans) ;
+}
+
+.dark body {
+  background: #08100d;
+  color: #edf4ee;
+}
+
+@keyframes ripple {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.55;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(14);
+    opacity: 0;
+  }
 }

@@ -410,7 +410,7 @@ const formatCooldown = (seconds: number) => {
   return (
     <div key={pageKey} className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
       {/* LEFT SIDE – IMAGE + OVERLAY */}
-      <div className="relative hidden md:flex items-center justify-center bg-[#394245] rounded-[12px]">
+      <div className="relative hidden md:flex items-center justify-center bg-[#251a00] rounded-[12px]">
         {/* Background image */}
         <div className="absolute inset-0 overflow-hidden mt-10">
           <Image
@@ -422,7 +422,7 @@ const formatCooldown = (seconds: number) => {
           />
         </div>
         {/* Dark overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(57,66,69,0.9)_55%,rgba(57,66,69,1)_70%)] mb-80 pointer-events-none"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(120,90,0,0.9)_55%,rgba(120,90,0,1)_70%)] mb-80 pointer-events-none"></div>
 
         {/* Overlay text */}
         <div className="relative z-10 px-10 text-center text-white mb-116 w-full">

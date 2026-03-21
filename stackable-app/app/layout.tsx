@@ -5,8 +5,11 @@ import { Poppins } from 'next/font/google';
 import { Inter } from 'next/font/google';
 import { ABeeZee } from 'next/font/google';
 import { Open_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
+import { ThemeProvider as NextThemesProvider } from "next-themes";
+import type { ThemeProviderProps } from "next-themes";
 import Script from 'next/script';
 
 
@@ -32,6 +35,13 @@ const openSans = Open_Sans({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700', '800'],
   variable: '--font-open-sans',
+  display: 'swap',
+});
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  variable: '--font-plus-jakarta-sans',
   display: 'swap',
 });
 
@@ -64,13 +74,28 @@ export const metadata: Metadata = {
   description: "Education at scale",
 };
 
+function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="daek"
+      enableSystem={false}
+      disableTransitionOnChange
+      {...props}
+    >
+      {children}
+    </NextThemesProvider>
+  );
+}
+
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html>
+    <html lang="en" suppressHydrationWarning>
           <head>
             {/* Tabler Icons */}
             <link
@@ -82,8 +107,10 @@ export default function RootLayout({
     <Script src="https://unpkg.com/lucide@latest"></Script>
           </head>
       <body
-        className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} antialiased `}>
-        <ToastProvider>{children}</ToastProvider>
+        className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} ${plusJakartaSans.variable} antialiased `}>
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ThemeProvider>
 
             {/*Development version*/}
     <Script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></Script>
