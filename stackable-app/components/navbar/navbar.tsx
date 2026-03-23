@@ -19,8 +19,8 @@ export const brand = {
 };
 
 export const navLinks = [
-  { label: "Home", href: "#home" },
-  { label: "Our Story", href: "#story" },
+  { label: "Home", href: "/" },
+  { label: "Our Story", href: "/our-story" },
   { label: "Library", href: "#library" },
   { label: "Academy", href: "#academy" },
   { label: "Benefits", href: "#benefits" },
@@ -166,7 +166,7 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-black/5 bg-white/70 backdrop-blur-xl dark:border-white/10 dark:bg-[#08100d]/75">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6 lg:px-8">
+      <div className="mx-auto flex items-center justify-between px-4 py-4 md:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
             <div className="hidden sm:block">
           <Image
@@ -191,7 +191,7 @@ export function Navbar() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex">
+        <nav className="hidden items-center gap-10 lg:gap-12.5 md:flex">
           {navLinks.map((link) => (
             <a
               key={link.label}
@@ -203,6 +203,8 @@ export function Navbar() {
           ))}
         </nav>
 
+        <div className="items-center flex md:gap-10 right-0 relative">
+          <div className="md:pr-12.5 md:ml-[-15px]">
         <button
             onClick={toggleTheme}
             aria-label="Toggle theme"
@@ -214,8 +216,11 @@ export function Navbar() {
               <Moon className="h-5 w-5" />
             )}
           </button>
+          </div>
 
         <div className="hidden items-center gap-6 md:flex">
+
+          
               <div className="inline-flex items-center gap-3">
             <a
               href="/login"
@@ -231,7 +236,7 @@ export function Navbar() {
               Get Started
             </a>
           </div>
-        </div>
+        </div></div>
         
         
 

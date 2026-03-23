@@ -20,6 +20,8 @@ html {
   --font-body: var(--font-inter);
   --font-image: var(--font-Acumin);
   --font-main: var(--font-plus-jakarta-sans);
+  --font-secondary: var(--font-manrope);
+  --font-secondary-title: var(--font-space-grotesk);
 
   
 }

@@ -178,3 +178,86 @@ button {
 .dark .CTA-header{
   color: var(--primary-foreground);
 }
+
+/* ===== OUR STORY PAGE HELPERS ===== */
+
+.text-muted {
+  color: var(--muted-foreground);
+}
+
+.bg-grid-fade {
+  background-image:
+    linear-gradient(rgba(16, 133, 72, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 133, 72, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.dark .bg-grid-fade {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+.editorial-clip {
+  clip-path: polygon(12% 0%, 100% 0%, 88% 100%, 0% 100%);
+}
+
+.story-hero-glow {
+  background:
+    radial-gradient(circle at top center, rgba(255, 195, 0, 0.18), transparent 22%),
+    linear-gradient(
+      180deg,
+      rgba(16, 72, 50, 1) 0%,
+      rgba(41, 96, 70, 1) 24%,
+      rgba(115, 145, 128, 0.92) 46%,
+      rgba(233, 236, 233, 0.92) 78%,
+      rgba(249, 249, 248, 1) 100%
+    );
+}
+
+.dark .story-hero-glow {
+  background:
+    radial-gradient(circle at top center, rgba(255, 195, 0, 0.15), transparent 22%),
+    linear-gradient(
+      180deg,
+      rgba(10, 34, 24, 1) 0%,
+      rgba(18, 63, 43, 1) 24%,
+      rgba(58, 98, 78, 0.88) 48%,
+      rgba(13, 22, 19, 0.96) 78%,
+      rgba(8, 16, 13, 1) 100%
+    );
+}
+
+.story-tilt-shell {
+  position: relative;
+}
+
+.story-tilt-shell::before {
+  content: "";
+  position: absolute;
+  inset: 1.2rem;
+  border-radius: 2rem;
+  background: rgba(232, 211, 154, 0.8);
+  transform: rotate(7deg);
+  z-index: 0;
+}
+
+.dark .story-tilt-shell::before {
+  background: rgba(75, 63, 18, 0.48);
+}
+
+.story-card-shadow {
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.12);
+}
+
+.story-panel-shadow {
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.04);
+}
+
+.dark .story-panel-shadow {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.18);
+}
+
+.lexicon-active {
+  transform: translateY(-6px);
+}

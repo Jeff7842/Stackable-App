@@ -5,12 +5,13 @@ import { Poppins } from 'next/font/google';
 import { Inter } from 'next/font/google';
 import { ABeeZee } from 'next/font/google';
 import { Open_Sans } from 'next/font/google';
-import { Plus_Jakarta_Sans } from 'next/font/google';
+import { Plus_Jakarta_Sans, Manrope, Space_Grotesk } from 'next/font/google';
 import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 import Script from 'next/script';
+import { Space } from "lucide-react";
 
 
 const acumin = Acumin({
@@ -44,6 +45,20 @@ const plusJakartaSans = Plus_Jakarta_Sans({
   variable: '--font-plus-jakarta-sans',
   display: 'swap',
 });
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['200', '300', '400', '500', '600', '700', '800'],
+  variable: '--font-manrope',
+  display: 'swap',
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+  variable: '--font-space-grotesk',
+  display: 'swap',
+})
 
 const Abeezee = ABeeZee({
   subsets: ['latin'],
@@ -107,7 +122,7 @@ export default function RootLayout({
     <Script src="https://unpkg.com/lucide@latest"></Script>
           </head>
       <body
-        className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} ${plusJakartaSans.variable} antialiased `}>
+        className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} ${plusJakartaSans.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased `}>
         <ThemeProvider>
           <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>

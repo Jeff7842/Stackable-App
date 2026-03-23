@@ -1,0 +1,40 @@
+:root {
+  --background: #f9f9f8;
+  --foreground: #111714;
+  --description-foreground: #5d6a70;
+
+  --surface: #ffffff;
+  --surface-muted: #f0f2ef;
+  --border: rgba(17, 23, 20, 0.08);
+
+  --primary: #108548;
+  --primary-dark: #1B4332;
+  --primary-foreground: #ffffff;
+
+  --accent: #ffc300;
+  --accent-light:#785a00;
+  --accent-foreground: #251a00;
+
+  --muted-foreground: #5d6b70;
+
+  --nav-bg: rgba(255, 255, 255, 0.7);
+  --card-bg: rgba(255, 255, 255, 0.8);
+}
+
+.footer-social p{
+    margin-top:1.0rem;
+    color: var(--accent);
+} 
+
+.footer-social-icon-grid{
+    margin-top:1.0rem;
+}
+
+.footer-social-icon{
+    transition-duration:0.5s;
+
+}
+.footer-social-icon:hover{
+    transform:translateY(-2.5px);
+    transition: 0.5s;
+}

@@ -1,8 +1,18 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Mail,
+  MapPin,
+  Phone,
+  Youtube,
+  Facebook,
+  Linkedin,
+  Instagram,
+} from "lucide-react";
 import Image from "next/image";
+import "../css/footer.css";
 
 
 export function Footer() {
@@ -11,7 +21,7 @@ export function Footer() {
   return (
     <footer id="pricing" className="bg-[#123b2c] px-4 pb-10 pt-16 text-white dark:bg-[#07120d] md:px-6 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="grid gap-10 md:grid-cols-4">
+          <div className="grid gap-15 md:grid-cols-[285px_minmax(0,1fr)]">
             <div>
               <div className="flex w-full items-center justify-start gap-3">
   <div className="inline-flex h-20 w-20 items-center justify-center">
@@ -36,50 +46,147 @@ export function Footer() {
               <p className="mt-5 max-w-xs text-sm leading-7 text-white/70">
                 Building the operational foundation for smarter schools, better coordination, and stronger academic execution at scale.
               </p>
+
+              <div id="newsletter" className="mt-10">
+              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300] indent-2.5">Subscribe</h4>
+              <div className="mt-5 rounded-full border w-75 md:w-full border-white/10 bg-white/5 p-1.5 backdrop-blur-xl">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    placeholder="Your email"
+                    className="h-8 w-full bg-transparent px-4 text-sm text-white placeholder:text-white/40 outline-none"
+                  />
+                  <button className="group inline-flex h-8 w-9  px-3 items-center justify-center rounded-full bg-[#FFC300] text-[#251a00] transition-transform hover:scale-105 hover:text-[#f9f9f8] hover:bg-[#1B4332] hover:scale-1.02 duration-300">
+                    <ArrowRight className="h-5 w-5 group-hover:translate-x-1 duration-800" />
+                  </button>
+                </div>
+              </div>
+            </div>
             </div>
 
-            <div>
+          <div className=" grid gap-2 grid-cols-2 md:grid-cols-4 lg:grid-cols-4 mt-5 mr-5">
+            <div className="">
               <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Platform</h4>
               <div className="mt-5 space-y-3 text-sm text-white/70">
-                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-white">For Schools</a>
-                <a href="#benefits" className="block transition-transform hover:translate-x-1 hover:text-white">For Guardians</a>
-                <a href="#academy" className="block transition-transform hover:translate-x-1 hover:text-white">For Teachers</a>
+                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">For Schools</a>
+                <a href="#benefits" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">For Guardians</a>
+                <a href="#academy" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">For Teachers</a>
               </div>
             </div>
 
             <div>
               <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Company</h4>
-              <div className="mt-5 space-y-3 text-sm text-white/70">
-                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-white">Our Story</a>
-                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-white">Support</a>
-                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-white">Press Kit</a>
+              <div className="mt-5 space-y-3 text-sm text-white/70 duration-500 ">
+                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Our Story</a>
+                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Support</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Press Kit</a>
               </div>
             </div>
 
-            <div id="newsletter">
-              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Subscribe</h4>
-              <div className="mt-5 rounded-full border border-white/10 bg-white/5 p-1.5 backdrop-blur-xl">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="email"
-                    placeholder="Your email"
-                    className="h-12 w-full bg-transparent px-4 text-sm text-white placeholder:text-white/40 outline-none"
-                  />
-                  <button className="inline-flex h-12 w-12 p-4 items-center justify-center rounded-full bg-[#FFC300] text-[#251a00] transition-transform hover:scale-105 hover:bg-[#f9f9f8] hover:scale-1.02">
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                </div>
+            <div className="pt-8">
+              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Company</h4>
+              <div className="mt-5 space-y-3 text-sm text-white/70 duration-500 ">
+                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Our Story</a>
+                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Support</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Press Kit</a>
+              </div>
+            </div>
+
+            <div className="pt-8">
+  <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">
+    Reach Stackable
+  </h4>
+
+  <div className="mt-5 space-y-4 text-sm text-white/70">
+    <a
+      href="mailto:hello@stackable.co.ke"
+      className="group flex items-center gap-3 transition-all duration-500 hover:translate-x-1 hover:text-[#FFC300]"
+    >
+      <Mail className="h-4 w-4 shrink-0" />
+      <span>hello@stackable.co.ke</span>
+    </a>
+
+    <div className="flex items-center gap-3">
+      <MapPin className="h-4 w-4 shrink-0 text-white/70" />
+      <span>Nairobi, Kenya</span>
+    </div>
+
+    <a
+      href="tel:+254700123456"
+      className="group flex items-center gap-3 transition-all duration-500 hover:translate-x-1 hover:text-[#FFC300]"
+    >
+      <Phone className="h-4 w-4 shrink-0" />
+      <span>Hotline: +254 700 123 456</span>
+    </a>
+
+    <div className="footer-social pt-4">
+      <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/45">
+        Socials
+      </p>
+
+      <div className="footer-social-icon-grid space-x-3 flex gap-3 items-center h-auto align-middle pt-2">
+        <a
+          href="https://youtube.com/@stackable"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
+        >
+          <Youtube className="h-5 w-5 shrink-0" />
+          
+        </a>
+
+        <a
+          href="https://facebook.com/stackable"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
+        >
+          <Facebook className="h-5 w-5 shrink-0" />
+          
+        </a>
+
+        <a
+          href="https://linkedin.com/company/stackable"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
+        >
+          <Linkedin className="h-5 w-5 shrink-0" />
+        </a>
+
+        <a
+          href="https://instagram.com/stackable"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
+        >
+          <Instagram className="h-5 w-5 shrink-0" />
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+            <div>
+              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Company</h4>
+              <div className="mt-5 space-y-3 text-sm text-white/70 duration-500 ">
+                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Our Story</a>
+                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Support</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Press Kit</a>
               </div>
             </div>
           </div>
 
-          <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-8 text-xs uppercase tracking-[0.12em] text-white/45 md:flex-row md:items-center">
-            <p>© {year} Stackable Academy. All rights reserved.</p>
-            <div className="flex flex-wrap gap-5">
-              <a href="#" className="hover:text-white">Privacy Policy</a>
-              <a href="#" className="hover:text-white">Terms of Service</a>
-              <a href="#" className="hover:text-white">Cookie Policy</a>
-              <a href="#" className="hover:text-white">Legal</a>
+            
+          </div>
+
+          <div className="mt-14 flex flex-col justify-between gap-4 border-t text-center border-white/10 pt-8 text-xs uppercase tracking-[0.12em] text-white/45 md:flex-row items-center">
+            <p>© {year} Stackable. All rights reserved.</p>
+            <div className="flex items-center text-center flex-wrap gap-5 justify-center">
+              <a href="#" className="hover:text-[#FFC300] duration-300">Privacy Policy</a>
+              <a href="#" className="hover:text-[#FFC300] duration-300">Terms of Service</a>
+              <a href="#" className="hover:text-[#FFC300] duration-300">Cookie Policy</a>
+              <a href="#" className="hover:text-[#FFC300] duration-300">Legal</a>
             </div>
           </div>
         </div>

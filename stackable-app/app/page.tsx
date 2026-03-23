@@ -27,9 +27,9 @@ import "@/components/css/main.css";
  *
  * Tailwind + Framer Motion required.
  * Asset paths expected in /public:
- * - /branding/main-logo.webp
- * - /branding/symbol-light.webp
- * - /branding/symbol-dark.webp
+ * - /logos/main-logo.webp
+ * - /logos/symbol-light.webp
+ * - /logos/symbol-dark.webp
  * - /images/hero-learning-space.jpg
  * - /images/philosophy-team.jpg
  * - /images/library-stack.jpg
