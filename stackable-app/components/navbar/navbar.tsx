@@ -1,11 +1,17 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Menu, Moon, Sun, X } from "lucide-react";
+import { BookOpen,
+  ChevronDown,
+  Menu,
+  Moon,
+  Newspaper,
+  Sun,
+  X, } from "lucide-react";
 import { AnimatePresence, motion, useInView } from "framer-motion";
 import { useTheme } from "next-themes";
 import Image from "next/image";
-import Link from "next/link"
+import Link from "next/link";
 
 export const brand = {
   darkGreen: "#1B4332",
@@ -18,14 +24,41 @@ export const brand = {
   blackish: "#0e1512",
 };
 
-export const navLinks = [
+type NavLeafLink = {
+  label: string;
+  href: string;
+};
+
+type NavChildLink = NavLeafLink & {
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type NavDropdownLink = {
+  label: string;
+  children: NavChildLink[];
+};
+
+type NavLink = NavLeafLink | NavDropdownLink;
+
+export const navLinks: NavLink[] = [
   { label: "Home", href: "/" },
   { label: "Our Story", href: "/our-story" },
-  { label: "Library", href: "#library" },
-  { label: "Academy", href: "#academy" },
-  { label: "Benefits", href: "#benefits" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Contact Us", href: "/contact" },
+  {
+    label: "Resources",
+    children: [
+      { label: "Library", href: "/library", icon: BookOpen },
+      { label: "Blog", href: "/blog", icon: Newspaper },
+    ],
+  },
+  { label: "Academy", href: "/academy" },
+  { label: "Benefits", href: "/benefits" },
+  { label: "Pricing", href: "/pricing" },
 ];
+
+function hasChildren(link: NavLink): link is NavDropdownLink {
+  return "children" in link;
+}
 
 
 
@@ -192,16 +225,52 @@ export function Navbar() {
         </Link>
 
         <nav className="hidden items-center gap-10 lg:gap-12.5 md:flex">
-          {navLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className="text-sm font-medium tracking-tight text-[#355045] transition-colors hover:text-[#108548] dark:text-[#cad8cf] dark:hover:text-[#FFC300]"
-            >
-              {link.label}
-            </a>
-          ))}
-        </nav>
+  {navLinks.map((link) => {
+    if (hasChildren(link)) {
+      return (
+        <div key={link.label} className="group relative">
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 text-sm font-medium tracking-tight text-[#355045] transition-colors hover:text-[#108548] dark:text-[#cad8cf] dark:hover:text-[#FFC300]"
+          >
+            <span>{link.label}</span>
+            <ChevronDown className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
+          </button>
+
+          <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 w-56 -translate-x-1/2 opacity-0 transition-all duration-300 group-hover:pointer-events-auto group-hover:opacity-100">
+            <div className="rounded-2xl border border-black/8 bg-white p-2 shadow-[0_18px_40px_rgba(0,0,0,0.12)] dark:border-white/10 dark:bg-[#101915]">
+              {link.children.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-[#355045] transition-all duration-300 hover:bg-[#108548]/8 hover:text-[#108548] dark:text-[#d7e3dc] dark:hover:bg-white/5 dark:hover:text-[#FFC300]"
+                  >
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#108548]/10 text-[#108548] dark:bg-[#FFC300]/10 dark:text-[#FFC300]">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={link.label}
+        href={link.href}
+        className="text-sm font-medium tracking-tight text-[#355045] transition-colors hover:text-[#108548] dark:text-[#cad8cf] dark:hover:text-[#FFC300]"
+      >
+        {link.label}
+      </Link>
+    );
+  })}
+</nav>
 
         <div className="items-center flex md:gap-10 right-0 relative">
           <div className="md:pr-12.5 md:ml-[-15px]">
@@ -258,16 +327,46 @@ export function Navbar() {
             className="overflow-hidden border-t border-black/5 bg-white/90 px-4 pb-5 pt-3 backdrop-blur-xl dark:border-white/10 dark:bg-[#0b1511]/95 md:hidden"
           >
             <div className="flex flex-col gap-3">
-              {navLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className="rounded-xl px-3 py-2 text-sm font-medium text-[#355045] transition-colors hover:bg-[#108548]/10 hover:text-[#108548] dark:text-[#d7e3dc]"
-                >
-                  {link.label}
-                </a>
-              ))}
+              {navLinks.map((link) => {
+  if (hasChildren(link)) {
+    return (
+      <div key={link.label} className="rounded-xl border border-black/5 p-2 dark:border-white/10">
+        <div className="mb-2 flex items-center gap-2 px-2 py-1 text-sm font-semibold text-[#355045] dark:text-[#d7e3dc]">
+          <span>{link.label}</span>
+          <ChevronDown className="h-4 w-4" />
+        </div>
+
+        <div className="flex flex-col gap-1">
+          {link.children.map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                onClick={() => setMenuOpen(false)}
+                className="flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-[#355045] transition-all duration-300 hover:bg-[#108548]/10 hover:text-[#108548] dark:text-[#d7e3dc]"
+              >
+                <Icon className="h-4 w-4" />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      key={link.label}
+      href={link.href}
+      onClick={() => setMenuOpen(false)}
+      className="rounded-xl px-3 py-2 text-sm font-medium text-[#355045] transition-colors hover:bg-[#108548]/10 hover:text-[#108548] dark:text-[#d7e3dc]"
+    >
+      {link.label}
+    </Link>
+  );
+})}
 
               <div className="mt-2 flex items-center gap-3">
                 <button

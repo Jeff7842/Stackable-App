@@ -81,16 +81,17 @@ export function Footer() {
               <div className="mt-5 space-y-3 text-sm text-white/70 duration-500 ">
                 <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Our Story</a>
                 <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Support</a>
-                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Press Kit</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Kyfaru Network</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Careers</a>
               </div>
             </div>
 
             <div className="pt-8">
-              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Company</h4>
+              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Solutions</h4>
               <div className="mt-5 space-y-3 text-sm text-white/70 duration-500 ">
-                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Our Story</a>
-                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Support</a>
-                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Press Kit</a>
+                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Academy Portal</a>
+                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Grading Core</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Admissions Hub</a>
               </div>
             </div>
 
@@ -169,11 +170,11 @@ export function Footer() {
 </div>
 
             <div>
-              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Company</h4>
+              <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300]">Legal</h4>
               <div className="mt-5 space-y-3 text-sm text-white/70 duration-500 ">
-                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Our Story</a>
-                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Support</a>
-                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Press Kit</a>
+                <a href="#story" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500  ">Institutional Privacy</a>
+                <a href="#library" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Governance</a>
+                <a href="#pricing" className="block transition-transform hover:translate-x-1 hover:text-[#FFC300] duration-500 ">Academic Standards</a>
               </div>
             </div>
           </div>
