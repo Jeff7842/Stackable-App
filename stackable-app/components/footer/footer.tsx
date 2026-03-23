@@ -12,6 +12,8 @@ import {
   Instagram,
 } from "lucide-react";
 import Image from "next/image";
+import { Icon } from '@iconify-icon/react';
+
 import "../css/footer.css";
 
 
@@ -49,14 +51,14 @@ export function Footer() {
 
               <div id="newsletter" className="mt-10">
               <h4 className="text-xs font-extrabold uppercase tracking-[0.16em] text-[#FFC300] indent-2.5">Subscribe</h4>
-              <div className="mt-5 rounded-full border w-75 md:w-full border-white/10 bg-white/5 p-1.5 backdrop-blur-xl">
+              <div className="mt-5 rounded-full border w-75 md:w-full border-white/12.5 bg-white/8.5 p-1.5 backdrop-blur-xl">
                 <div className="flex items-center gap-2">
                   <input
                     type="email"
                     placeholder="Your email"
-                    className="h-8 w-full bg-transparent px-4 text-sm text-white placeholder:text-white/40 outline-none"
+                    className="h-8 w-full bg-transparent px-4 rounded-full text-sm text-white placeholder:text-white/40 outline-none"
                   />
-                  <button className="group inline-flex h-8 w-9  px-3 items-center justify-center rounded-full bg-[#FFC300] text-[#251a00] transition-transform hover:scale-105 hover:text-[#f9f9f8] hover:bg-[#1B4332] hover:scale-1.02 duration-300">
+                  <button className="group inline-flex h-8 w-9  px-3 items-center justify-center rounded-full bg-[#FFC300] text-[#251a00] transition-transform hover:scale-105 hover:text-[#f9f9f8] hover:bg-[#785a00] hover:scale-1.02 duration-300">
                     <ArrowRight className="h-5 w-5 group-hover:translate-x-1 duration-800" />
                   </button>
                 </div>
@@ -98,40 +100,40 @@ export function Footer() {
   </h4>
 
   <div className="mt-5 space-y-4 text-sm text-white/70">
-    <a
-      href="mailto:hello@stackable.co.ke"
-      className="group flex items-center gap-3 transition-all duration-500 hover:translate-x-1 hover:text-[#FFC300]"
+    <p
+      
+      className="group flex items-center gap-3 hover:text-[#FFC300]"
     >
       <Mail className="h-4 w-4 shrink-0" />
-      <span>hello@stackable.co.ke</span>
-    </a>
+      <a href="mailto:hello@stackable.co.ke" className="hover:text-[#FFC300] transition-all duration-500">hello@stackable.co.ke</a>
+    </p>
 
     <div className="flex items-center gap-3">
       <MapPin className="h-4 w-4 shrink-0 text-white/70" />
       <span>Nairobi, Kenya</span>
     </div>
 
-    <a
-      href="tel:+254700123456"
-      className="group flex items-center gap-3 transition-all duration-500 hover:translate-x-1 hover:text-[#FFC300]"
+    <p
+      
+      className="group flex items-center gap-3 hover:text-[#FFC300] transition-all duration-500"
     >
       <Phone className="h-4 w-4 shrink-0" />
-      <span>Hotline: +254 700 123 456</span>
-    </a>
+      <span>Hotline: <a href="tel:+254700123456" className="hover:text-[#FFC300] transition-all duration-500 hover:translate-x-1">+254 700 123 456</a></span>
+    </p>
 
     <div className="footer-social pt-4">
       <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.14em] text-white/45">
         Socials
       </p>
 
-      <div className="footer-social-icon-grid space-x-3 flex gap-3 items-center h-auto align-middle pt-2">
+      <div className="footer-social-icon-grid space-x-3 flex gap-3.5 items-center h-auto align-middle pt-1">
         <a
           href="https://youtube.com/@stackable"
           target="_blank"
           rel="noopener noreferrer"
           className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
         >
-          <Youtube className="h-5 w-5 shrink-0" />
+          <Icon icon="mingcute:youtube-fill" width="24" height="24" className="w-5 h-5 shrink-0"/>
           
         </a>
 
@@ -141,8 +143,7 @@ export function Footer() {
           rel="noopener noreferrer"
           className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
         >
-          <Facebook className="h-5 w-5 shrink-0" />
-          
+          <Icon icon="gg:facebook" width="24" height="24" className="h-5 w-5 shrink-0"/>
         </a>
 
         <a
@@ -151,7 +152,7 @@ export function Footer() {
           rel="noopener noreferrer"
           className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
         >
-          <Linkedin className="h-5 w-5 shrink-0" />
+          <Icon icon="ri:linkedin-fill" width="24" height="24" className="h-5 w-5 shrink-0"/>
         </a>
 
         <a
@@ -160,7 +161,7 @@ export function Footer() {
           rel="noopener noreferrer"
           className="group footer-social-icon flex items-center gap-3 transition-colors duration-500 hover:text-[#FFC300]"
         >
-          <Instagram className="h-5 w-5 shrink-0" />
+          <Icon icon="mdi:instagram" width="24" height="24" className="w-5 h-5 shrink-0"/>
         </a>
       </div>
     </div>
@@ -181,7 +182,7 @@ export function Footer() {
           </div>
 
           <div className="mt-14 flex flex-col justify-between gap-4 border-t text-center border-white/10 pt-8 text-xs uppercase tracking-[0.12em] text-white/45 md:flex-row items-center">
-            <p>© {year} Stackable. All rights reserved.</p>
+            <p className="text-white/70">© {year} Stackable. All rights reserved.</p>
             <div className="flex items-center text-center flex-wrap gap-5 justify-center">
               <a href="#" className="hover:text-[#FFC300] duration-300">Privacy Policy</a>
               <a href="#" className="hover:text-[#FFC300] duration-300">Terms of Service</a>
