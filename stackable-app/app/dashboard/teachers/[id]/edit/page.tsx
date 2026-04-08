@@ -5,6 +5,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { useConfirmation } from "@/components/confirmation/ConfirmationProvider";
+import { useToast } from "@/components/toast/ToastProvider";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -186,6 +188,8 @@ export default function TeacherEditSlugPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { confirm } = useConfirmation();
+  const { showToast } = useToast();
   const teacherId = params?.id as string;
   const initialMode = searchParams?.get("mode") === "view" ? "view" : "edit";
 
@@ -213,9 +217,6 @@ export default function TeacherEditSlugPage() {
   const [classTeacherForClassId, setClassTeacherForClassId] = useState<string>("");
 
   const [timetable, setTimetable] = useState<TimetableRow[]>([]);
-  const [statusCandidate, setStatusCandidate] = useState<TeacherStatus | null>(null);
-  const [showStatusConfirm, setShowStatusConfirm] = useState(false);
-
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
   const [showSlotModal, setShowSlotModal] = useState(false);
@@ -233,6 +234,14 @@ export default function TeacherEditSlugPage() {
   });
 
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  function showErrorToast(title: string, description?: string) {
+    showToast({ type: "error", title, description });
+  }
+
+  function showSuccessToast(title: string, description?: string) {
+    showToast({ type: "success", title, description });
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -412,23 +421,21 @@ export default function TeacherEditSlugPage() {
     );
   }
 
-  function requestStatusChange(next: TeacherStatus) {
+  async function requestStatusChange(next: TeacherStatus) {
     if (mode === "view") return;
     if (next === form.status) return;
-    setStatusCandidate(next);
-    setShowStatusConfirm(true);
-  }
 
-  function confirmStatusChange() {
-    if (!statusCandidate) return;
-    updateForm("status", statusCandidate);
-    setShowStatusConfirm(false);
-    setStatusCandidate(null);
-  }
+    const accepted = await confirm({
+      title: "Confirm status change",
+      message: `Change teacher status from ${STATUS_META[form.status].label} to ${STATUS_META[next].label}?`,
+      confirmLabel: "Change status",
+      cancelLabel: "Cancel",
+      tone:
+        next === "suspended" || next === "terminated" ? "danger" : "primary",
+    });
 
-  function cancelStatusChange() {
-    setShowStatusConfirm(false);
-    setStatusCandidate(null);
+    if (!accepted) return;
+    updateForm("status", next);
   }
 
   function openNewSlot(day?: string, time?: string) {
@@ -502,11 +509,22 @@ export default function TeacherEditSlugPage() {
     closeSlotModal();
   }
 
-  function deleteSlotLocal(id: string) {
+  async function deleteSlotLocal(id: string) {
     if (mode === "view") return;
-    const ok = window.confirm("Delete this timetable item?");
+
+    const ok = await confirm({
+      title: "Delete timetable item?",
+      message: "Delete this timetable item from the weekly schedule?",
+      confirmLabel: "Delete item",
+      cancelLabel: "Cancel",
+      tone: "danger",
+    });
+
     if (!ok) return;
+
     setTimetable((prev) => prev.filter((item) => item.id !== id));
+    closeSlotModal();
+    showSuccessToast("Timetable item deleted", "The schedule item was removed.");
   }
 
   function onDragStart(slotId: string) {
@@ -539,7 +557,7 @@ export default function TeacherEditSlugPage() {
 
     if (uploadError) {
       console.error("Photo upload failed:", uploadError);
-      alert("Failed to upload photo.");
+      showErrorToast("Photo upload failed", "Failed to upload photo.");
       return;
     }
 
@@ -548,6 +566,7 @@ export default function TeacherEditSlugPage() {
       .getPublicUrl(path);
 
     updateForm("profile_photo", data.publicUrl);
+    showSuccessToast("Photo updated", "Teacher profile photo uploaded successfully.");
   }
 
   async function handleVerify(kind: "email" | "phone") {
@@ -570,14 +589,18 @@ export default function TeacherEditSlugPage() {
       });
 
       if (!res.ok) throw new Error(`Verification request failed: ${res.status}`);
-      alert(
+      showSuccessToast(
+        kind === "email" ? "Verification email sent" : "Verification text sent",
         kind === "email"
-          ? "Verification email sent."
-          : "Verification text sent.",
+          ? "The email verification message was sent."
+          : "The phone verification message was sent.",
       );
     } catch (error) {
       console.error(error);
-      alert(`Failed to send ${kind} verification.`);
+      showErrorToast(
+        "Verification failed",
+        `Failed to send ${kind} verification.`,
+      );
     } finally {
       setVerifying(null);
     }
@@ -678,11 +701,17 @@ export default function TeacherEditSlugPage() {
         if (insertRes.error) throw insertRes.error;
       }
 
-      alert("Teacher profile updated successfully.");
+      showSuccessToast(
+        "Teacher updated",
+        "Teacher profile and timetable changes were saved successfully.",
+      );
       router.refresh();
     } catch (error) {
       console.error("Save failed:", error);
-      alert("Failed to save teacher changes.");
+      showErrorToast(
+        "Save failed",
+        "Failed to save teacher changes.",
+      );
     } finally {
       setSaving(false);
     }
@@ -838,7 +867,7 @@ export default function TeacherEditSlugPage() {
                   <button
                     key={status}
                     type="button"
-                    onClick={() => requestStatusChange(status)}
+                    onClick={() => void requestStatusChange(status)}
                     disabled={mode === "view"}
                     className={`rounded-2xl border px-4 py-3 text-sm font-semibold transition ${
                       selected ? STATUS_META[status].active : STATUS_META[status].idle
@@ -1136,33 +1165,6 @@ export default function TeacherEditSlugPage() {
         </div>
       </div>
 
-      {showStatusConfirm && statusCandidate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-[24px] bg-white p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900">Confirm Status Change</h3>
-            <p className="mt-2 text-sm text-gray-600">
-              Change teacher status from{" "}
-              <span className="font-semibold">{STATUS_META[form.status].label}</span> to{" "}
-              <span className="font-semibold">{STATUS_META[statusCandidate].label}</span>?
-            </p>
-            <div className="mt-5 flex items-center justify-end gap-3">
-              <button
-                onClick={cancelStatusChange}
-                className="rounded-[14px] border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmStatusChange}
-                className="rounded-[14px] bg-[#F19F24] px-4 py-2 text-sm font-semibold text-white"
-              >
-                Yes, Change
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showSlotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-2xl rounded-[26px] bg-white p-6 shadow-2xl">
@@ -1337,10 +1339,7 @@ export default function TeacherEditSlugPage() {
               <div>
                 {editingSlot && (
                   <button
-                    onClick={() => {
-                      deleteSlotLocal(editingSlot.id);
-                      closeSlotModal();
-                    }}
+                    onClick={() => void deleteSlotLocal(editingSlot.id)}
                     className="rounded-[14px] border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600"
                   >
                     Delete

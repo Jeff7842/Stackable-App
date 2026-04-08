@@ -17,23 +17,36 @@ export default function Toast({
   description,
   onClose,
 }: ToastProps) {
-  
   const styles = {
-    error: "from-rose-600 to-red-700 shadow-red-900/40",
-    success: "from-[#08bd38] to-emerald-700 shadow-emerald-900/30",
-    info: "from-sky-600 to-blue-700 shadow-blue-900/30",
-    warning: "from-amber-500 to-orange-600 shadow-orange-900/40",
+    error: {
+      icon: "bg-red-50 text-red-600",
+      ring: "ring-red-100",
+      accent: "bg-red-500",
+      description: "text-gray-500",
+    },
+    success: {
+      icon: "bg-emerald-50 text-emerald-600",
+      ring: "ring-emerald-100",
+      accent: "bg-emerald-500",
+      description: "text-gray-500",
+    },
+    info: {
+      icon: "bg-sky-50 text-sky-600",
+      ring: "ring-sky-100",
+      accent: "bg-sky-500",
+      description: "text-gray-500",
+    },
+    warning: {
+      icon: "bg-amber-50 text-amber-600",
+      ring: "ring-amber-100",
+      accent: "bg-amber-500",
+      description: "text-gray-500",
+    },
   };
 
   const icons = {
-  error: (
-    <div
-        className="
-          text-[#ffbf00]
-          bg-white/15 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
+    error: (
+      <div className="rounded-full p-1.5">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -45,19 +58,13 @@ export default function Toast({
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
-            d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
+            d="M12 9v4m0 4h.01M4.93 19h14.14c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.2 16c-.77 1.33.19 3 1.73 3Z"
           />
         </svg>
       </div>
-  ),
-  success: (
-    <div
-        className="
-          text-yellow-400
-          bg-white/15 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
+    ),
+    success: (
+      <div className="rounded-full p-1.5">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -73,39 +80,27 @@ export default function Toast({
           />
         </svg>
       </div>
-  ),
-  info: (
-    <div
-        className="
-          text-orange-400
-          bg-white/15 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
+    ),
+    info: (
+      <div className="rounded-full p-1.5">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
-          stroke-width="1.8"
+          strokeWidth="1.8"
           stroke="currentColor"
           className="w-6 h-6"
         >
           <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M12 20.25c4.97 0 9-3.694 9-8.25s-4.03-8.25-9-8.25S3 7.444 3 12c0 2.104.859 4.023 2.273 5.48.432.447.74 1.04.586 1.641a4.483 4.483 0 0 1-.923 1.785A5.969 5.969 0 0 0 6 21c1.282 0 2.47-.402 3.445-1.087.81.22 1.668.337 2.555.337Z"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M12 16v-4m0-4h.01m8.99 4a9 9 0 1 1-18 0a9 9 0 0 1 18 0Z"
           />
         </svg>
       </div>
-  ),
-  warning: (
-    <div
-        className="
-          text-white
-          bg-black/20 backdrop-blur-xl
-          p-1 rounded-lg
-        "
-      >
+    ),
+    warning: (
+      <div className="rounded-full p-1.5">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
@@ -121,61 +116,54 @@ export default function Toast({
           />
         </svg>
       </div>
-  ),
-};
-
-const textColors = {
-  error: "text-[#fff200]",
-  success: "text-white",
-  info: "text-white",
-  warning: "text-white",
-};
-
-const descriptionColors = {
-  error: "text-red-100/90",
-  success: "text-emerald-100/80",
-  info: "text-blue-100/80",
-  warning: "text-amber-100/85",
-};
-
+    ),
+  };
 
   return (
-    <div className="w-full min-w-70 max-w-[22.5rem] text-left text-[12px] sm:text-xs">
+    <div className="pointer-events-auto w-full text-left">
       <div
-        className={`
-          flex items-center text-left justify-between h-14 sm:h-14 rounded-lg
-          bg-gradient-to-r ${styles[type]}
-          px-[10px] shadow-lg
-        `}
+        className="relative overflow-hidden rounded-[22px] border border-gray-200 bg-white px-4 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
       >
-         {/* LEFT CLUSTER */}
-    <div className="flex items-center gap-2 text-left">
-      {/* Icon */}
-      <div className="shrink-0 text-white  backdrop-blur-[15px] p-1 rounded-lg">
-        {icons[type]}
-      </div>
+        <div className={`absolute inset-y-0 left-0 w-1 ${styles[type].accent}`} />
 
-      {/* Text */}
-      <div className="flex flex-col  leading-tight text-white">
-        <p className={`font-semibold ${textColors[type]}`}>{title}</p>
-        {description && <p className={`${descriptionColors[type]}`}>{description}</p>}
-      </div>
-    </div>
+        <div className="flex items-start justify-between gap-3 pl-2">
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ring-8 ${styles[type].icon} ${styles[type].ring}`}
+            >
+              {icons[type]}
+            </div>
 
-        <button
-          onClick={() => onClose(id)}
-          className="p-2 rounded-full text-gray-300 hover:bg-gray-100/20 hover:rotate-180 hover:text-amber-300 transition cursor-pointer"
-        >
-        <svg
-        className="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-      </svg>
-        </button>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-gray-900">{title}</p>
+              {description ? (
+                <p className={`mt-1 text-sm leading-5 ${styles[type].description}`}>
+                  {description}
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <button
+            onClick={() => onClose(id)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            aria-label="Dismiss notification"
+          >
+            <svg
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

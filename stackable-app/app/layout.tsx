@@ -8,6 +8,7 @@ import { Open_Sans } from 'next/font/google';
 import { Plus_Jakarta_Sans, Manrope, Space_Grotesk } from 'next/font/google';
 import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
+import { ConfirmationProvider } from "../components/confirmation/ConfirmationProvider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 import Script from 'next/script';
@@ -93,7 +94,7 @@ function ThemeProvider({ children, ...props }: ThemeProviderProps) {
   return (
     <NextThemesProvider
       attribute="class"
-      defaultTheme="daek"
+      defaultTheme="light"
       enableSystem={false}
       disableTransitionOnChange
       {...props}
@@ -124,7 +125,9 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} ${plusJakartaSans.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased `}>
         <ThemeProvider>
-          <ToastProvider>{children}</ToastProvider>
+          <ConfirmationProvider>
+            <ToastProvider>{children}</ToastProvider>
+          </ConfirmationProvider>
         </ThemeProvider>
 
             {/*Development version*/}

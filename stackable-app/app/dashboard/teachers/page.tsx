@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
+import { useConfirmation } from "@/components/confirmation/ConfirmationProvider";
+import { useToast } from "@/components/toast/ToastProvider";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -114,6 +116,8 @@ function EmptyState({ message }: { message: string }) {
 }
 
 export default function TeachersPage() {
+  const { confirm } = useConfirmation();
+  const { showToast } = useToast();
   const [teachers, setTeachers] = useState<TeacherRow[]>([]);
   const [schools, setSchools] = useState<SchoolOption[]>([]);
   const [subjects, setSubjects] = useState<SubjectOption[]>([]);
@@ -129,6 +133,20 @@ export default function TeachersPage() {
   const [sortBy, setSortBy] = useState("name-asc");
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
+
+  const showErrorToast = useCallback(
+    (title: string, description?: string) => {
+      showToast({ type: "error", title, description });
+    },
+    [showToast],
+  );
+
+  const showSuccessToast = useCallback(
+    (title: string, description?: string) => {
+      showToast({ type: "success", title, description });
+    },
+    [showToast],
+  );
 
   const subjectMap = useMemo(() => {
     return new Map(subjects.map((subject) => [String(subject.id), subject.subject_name]));
@@ -319,31 +337,49 @@ export default function TeachersPage() {
 
     if (error) {
       console.error("Teacher freeze toggle failed:", error);
-      alert("Failed to update teacher status.");
+      showErrorToast(
+        "Status update failed",
+        `Could not update ${teacher.name}.`,
+      );
     } else {
       setTeachers((prev) =>
         prev.map((item) =>
           item.id === teacher.id ? { ...item, status: nextStatus } : item,
         ),
       );
+      showSuccessToast(
+        nextStatus === "suspended" ? "Teacher suspended" : "Teacher activated",
+        `${teacher.name} is now ${nextStatus.replace("_", " ")}.`,
+      );
     }
 
     setBusyId(null);
   }
 
-  async function handleDelete(teacherId: string) {
-    const ok = window.confirm("Delete this teacher? This cannot be undone.");
+  async function handleDelete(teacher: TeacherRow) {
+    const ok = await confirm({
+      title: "Delete teacher?",
+      message: `Delete ${teacher.name}? This action cannot be undone.`,
+      confirmLabel: "Delete teacher",
+      cancelLabel: "Cancel",
+      tone: "danger",
+    });
+
     if (!ok) return;
 
-    setBusyId(teacherId);
+    setBusyId(teacher.id);
 
-    const { error } = await supabase.from("teachers").delete().eq("id", teacherId);
+    const { error } = await supabase.from("teachers").delete().eq("id", teacher.id);
 
     if (error) {
       console.error("Teacher delete failed:", error);
-      alert("Failed to delete teacher.");
+      showErrorToast("Delete failed", `Could not delete ${teacher.name}.`);
     } else {
-      setTeachers((prev) => prev.filter((item) => item.id !== teacherId));
+      setTeachers((prev) => prev.filter((item) => item.id !== teacher.id));
+      showSuccessToast(
+        "Teacher deleted",
+        `${teacher.name} was removed successfully.`,
+      );
     }
 
     setBusyId(null);
@@ -812,7 +848,7 @@ export default function TeachersPage() {
 
                           <button
                             type="button"
-                            onClick={() => handleDelete(teacher.id)}
+                            onClick={() => void handleDelete(teacher)}
                             disabled={busyId === teacher.id}
                             className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
                             title="Delete"
@@ -1021,7 +1057,7 @@ export default function TeachersPage() {
 
                   <button
                     type="button"
-                    onClick={() => handleDelete(teacher.id)}
+                    onClick={() => void handleDelete(teacher)}
                     disabled={busyId === teacher.id}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-red-200 bg-red-50 text-red-600 transition hover:bg-red-100 disabled:opacity-50"
                     title="Delete"

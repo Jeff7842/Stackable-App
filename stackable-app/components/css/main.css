@@ -1,39 +1,18 @@
 @import "tailwindcss";
 @custom-variant dark (&:where(.dark, .dark *));
- 
- 
- 
- @keyframes ripple {
-          0% { transform: translate(-50%, -50%) scale(0); opacity: .55; }
-          100% { transform: translate(-50%, -50%) scale(14); opacity: 0; }
-        }
-
-        html { scroll-behavior: smooth; }
-
-        body {
-          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
-        }
-
-
-        @import "tailwindcss";
 
 :root {
   --background: #f9f9f8;
   --foreground: #111714;
   --description-foreground: #5d6a70;
-
   --surface: #ffffff;
   --surface-muted: #f0f2ef;
   --border: rgba(17, 23, 20, 0.08);
-
   --primary: #108548;
   --primary-foreground: #ffffff;
-
   --accent: #ffc300;
   --accent-foreground: #251a00;
-
   --muted-foreground: #5d6b70;
-
   --nav-bg: rgba(255, 255, 255, 0.7);
   --card-bg: rgba(255, 255, 255, 0.8);
 }
@@ -41,20 +20,15 @@
 .dark {
   --background: #08100d;
   --foreground: #edf4ee;
-  --description-foreground:#b5c4bb;
-
+  --description-foreground: #b5c4bb;
   --surface: #101916;
   --surface-muted: #0d1613;
   --border: rgba(255, 255, 255, 0.1);
-
   --primary: #108548;
   --primary-foreground: #ffffff;
-
   --accent: #ffc300;
   --accent-foreground: #251a00;
-
   --muted-foreground: #b7c6bd;
-
   --nav-bg: rgba(8, 16, 13, 0.75);
   --card-bg: rgba(11, 21, 17, 0.85);
 }
@@ -76,13 +50,11 @@ body {
     box-shadow 250ms ease;
 }
 
-/* Explicitly what you asked for */
 .dark body {
   background-color: var(--background);
   color: var(--foreground);
 }
 
-/* Optional explicit light selector */
 body,
 .light body {
   background-color: var(--background);
@@ -115,7 +87,12 @@ button {
 }
 
 @layer base {
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: var(--font-inter), system-ui, sans-serif;
     color: var(--foreground);
   }
@@ -163,26 +140,12 @@ button {
   }
 }
 
-.philosophy-description{
-    color:var(--description-foreground);
+.philosophy-description {
+  color: var(--description-foreground);
 }
 
-.dark .philosophy-description{
-    color:var(--description-foreground);
-}
-
-.CTA-header{
+.CTA-header {
   color: var(--primary-foreground);
-}
-
-.dark .CTA-header{
-  color: var(--primary-foreground);
-}
-
-/* ===== OUR STORY PAGE HELPERS ===== */
-
-.text-muted {
-  color: var(--muted-foreground);
 }
 
 .bg-grid-fade {
@@ -260,4 +223,84 @@ button {
 
 .lexicon-active {
   transform: translateY(-6px);
+}
+
+.subject-tree-shell {
+  position: relative;
+  background:
+    radial-gradient(circle at top right, rgba(255, 244, 226, 0.9), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(252, 252, 249, 1) 100%);
+}
+
+.subject-tree-node {
+  position: relative;
+}
+
+.subject-tree-node::before {
+  content: "";
+  position: absolute;
+  left: 0.45rem;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(16, 133, 72, 0.18) 0%, rgba(241, 159, 36, 0.18) 100%);
+}
+
+.subject-tree-node:last-child::before {
+  bottom: 1.6rem;
+}
+
+.subject-tree-indicator {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.95);
+}
+
+.subject-tree-children {
+  position: relative;
+  margin-left: 0.25rem;
+}
+
+.subject-tree-children::before {
+  content: "";
+  position: absolute;
+  left: 0.45rem;
+  top: -0.6rem;
+  bottom: 1rem;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(16, 133, 72, 0.15) 0%, rgba(241, 159, 36, 0.15) 100%);
+}
+
+@keyframes subject-node-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(241, 159, 36, 0.32);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(241, 159, 36, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(241, 159, 36, 0);
+  }
+}
+
+.subject-tree-pulse {
+  animation: subject-node-pulse 2s ease-in-out infinite;
+}
+
+.subject-card-media-shell {
+  isolation: isolate;
+}
+
+.subject-card-media {
+  transform: scale(1);
+  filter: grayscale(0);
+  transition:
+    transform 15000ms ease,
+    filter 15000ms ease;
+  will-change: transform, filter;
+}
+
+.subject-card-media-shell:hover .subject-card-media {
+  transform: scale(1.12);
+  filter: grayscale(1);
 }

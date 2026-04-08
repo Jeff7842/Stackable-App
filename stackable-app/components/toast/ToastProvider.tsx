@@ -1,38 +1,45 @@
 "use client";
 
-import { createContext, useContext, useState , useRef } from "react";
+import {
+  createContext,
+  useContext,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Toast from "./Toast";
 
-type ToastType = "error" | "success" | "info" | "warning";
+export type ToastType = "error" | "success" | "info" | "warning";
 
-interface ToastData {
-  id: string;
+export type ToastInput = {
   type: ToastType;
   title: string;
   description?: string;
+};
+
+interface ToastData extends ToastInput {
+  id: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const ToastContext = createContext<any>(null);
+type ToastContextValue = {
+  showToast: (toast: ToastInput) => void;
+};
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+const ToastContext = createContext<ToastContextValue | null>(null);
+
+export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastData[]>([]);
-
   const toastCounter = useRef(0);
+  const MAX_TOASTS = 4;
 
-const MAX_TOASTS = 7;
-
-  const showToast = (toast: Omit<ToastData, "id">) => {
+  const showToast = (toast: ToastInput) => {
     const id = `toast-${++toastCounter.current}`;
 
-    setToasts(prev => {
-    // If max reached, drop the oldest toast (FIFO)
-    const next = prev.length >= MAX_TOASTS
-      ? prev.slice(1)
-      : prev;
+    setToasts((prev) => {
+      const next = prev.length >= MAX_TOASTS ? prev.slice(1) : prev;
 
-    return [...next, { ...toast, id }];
-  });
+      return [...next, { ...toast, id }];
+    });
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -47,8 +54,7 @@ const MAX_TOASTS = 7;
     <ToastContext.Provider value={{ showToast }}>
       {children}
 
-      {/* GLOBAL TOAST AREA */}
-      <div className="fixed top-6 right-6 z-120 flex flex-col gap-2 transition pointer-events-auto">
+      <div className="pointer-events-none fixed right-4 top-4 z-[130] flex w-[min(100vw-2rem,24rem)] flex-col gap-3 sm:right-6 sm:top-6">
         {toasts.map((toast) => (
           <Toast key={toast.id} {...toast} onClose={removeToast} />
         ))}
@@ -57,4 +63,12 @@ const MAX_TOASTS = 7;
   );
 }
 
-export const useToast = () => useContext(ToastContext);
+export function useToast() {
+  const context = useContext(ToastContext);
+
+  if (!context) {
+    throw new Error("useToast must be used within a ToastProvider.");
+  }
+
+  return context;
+}

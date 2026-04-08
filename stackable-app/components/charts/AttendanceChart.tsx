@@ -3,14 +3,13 @@
 import dynamic from 'next/dynamic';
 import { useState } from 'react';
 import { TrendingUp } from 'lucide-react';
-import Script from 'next/script';
 
 const Chart = dynamic(() => import('react-apexcharts'), { ssr: false });
 
 type RangeKey = '7' | '30' | '90';
 
 const attendanceData: Record<RangeKey, number[]> = {
-  '7':  [1200, 1250, 1180, 1300, 1400, 1380, 1420],
+  '7': [1200, 1250, 1180, 1300, 1400, 1380, 1420],
   '30': Array.from({ length: 30 }, (_, i) => 1100 + i * 8),
   '90': Array.from({ length: 90 }, (_, i) => 900 + i * 6),
 };
@@ -56,9 +55,7 @@ export default function AttendanceChartCard() {
   ];
 
   return (
-    <>
     <div className="max-w-full w-full bg-[#ffffff] border border-default rounded-base rounded-3xl shadow-xs p-4 md:p-6">
-      {/* Header */}
       <div className="flex justify-between items-start">
         <div>
           <h5 className="text-2xl font-bold text-heading">
@@ -73,7 +70,6 @@ export default function AttendanceChartCard() {
         </div>
       </div>
 
-      {/* Chart */}
       <div className="py-4 md:py-6">
         <Chart
           options={chartOptions}
@@ -83,19 +79,17 @@ export default function AttendanceChartCard() {
         />
       </div>
 
-      {/* Footer */}
       <div className="border-t border-light pt-4 flex justify-between items-center">
         <div className="flex gap-2">
           {(['7', '30', '90'] as RangeKey[]).map((key) => (
             <button
               key={key}
               onClick={() => setRange(key)}
-              className={`text-sm font-medium px-2 py-1 rounded
-                ${
-                  range === key
-                    ? 'text-heading bg-neutral-secondary-medium'
-                    : 'text-body hover:text-heading'
-                }`}
+              className={`text-sm font-medium px-2 py-1 rounded ${
+                range === key
+                  ? 'text-heading bg-neutral-secondary-medium'
+                  : 'text-body hover:text-heading'
+              }`}
             >
               Last {key} days
             </button>
@@ -106,11 +100,9 @@ export default function AttendanceChartCard() {
           href="#"
           className="inline-flex items-center text-fg-brand text-sm font-medium hover:underline"
         >
-          Progress report →
+          Progress report
         </a>
       </div>
     </div>
-
-    </>
   );
 }
