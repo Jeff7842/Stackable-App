@@ -2,6 +2,8 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 import {
   buildSchoolSecurityCodeRows,
   createSchoolEmailConfirmationToken,
@@ -80,7 +82,11 @@ async function generateUniqueSchoolCode(name: string) {
   throw new Error("Failed to generate a unique school code.");
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  try {
+    await requireAuth(request, { roles: ["admin", "super-admin"], rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   const { data, error } = await supabaseAdmin
     .from("school_usage_overview")
     .select("*")
@@ -94,6 +100,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  try {
+    await requireAuth(req, { roles: ["admin", "super-admin"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const body = (await req.json()) as CreateSchoolBody;
 

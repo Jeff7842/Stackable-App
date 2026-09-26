@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSchoolSubjectOrThrow, getSubjectAssessmentsData } from "@/lib/subjects-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 
 function asText(value: unknown) {
   const text = String(value ?? "").trim();
@@ -13,6 +15,10 @@ function asNumber(value: unknown) {
 }
 
 export async function GET(request: NextRequest) {
+  try {
+    await requireAuth(request, { pageKey: "exams", rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const schoolSubjectId = request.nextUrl.searchParams.get("school_subject_id");
     if (!schoolSubjectId) {
@@ -31,6 +37,10 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  try {
+    await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const body = (await request.json()) as {
       school_subject_id?: string | null;

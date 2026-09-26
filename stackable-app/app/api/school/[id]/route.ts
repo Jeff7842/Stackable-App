@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 
 type Context = {
   params: Promise<{ id: string }>;
 };
 
-export async function GET(_: NextRequest, context: Context) {
+export async function GET(request: NextRequest, context: Context) {
+  try {
+    await requireAuth(request, { roles: ["admin", "super-admin"], rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   const { id } = await context.params;
 
   const { data, error } = await supabaseAdmin
@@ -22,6 +28,10 @@ export async function GET(_: NextRequest, context: Context) {
 }
 
 export async function PATCH(req: NextRequest, context: Context) {
+  try {
+    await requireAuth(req, { roles: ["admin", "super-admin"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   const { id } = await context.params;
   const body = await req.json();
 
@@ -72,7 +82,11 @@ export async function PATCH(req: NextRequest, context: Context) {
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_: NextRequest, context: Context) {
+export async function DELETE(request: NextRequest, context: Context) {
+  try {
+    await requireAuth(request, { roles: ["super-admin"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   const { id } = await context.params;
 
   const { error } = await supabaseAdmin

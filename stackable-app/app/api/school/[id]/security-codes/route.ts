@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse, notFound } from "@/lib/api/errors";
 import {
   buildSchoolSecurityCodeEntries,
   buildSchoolSecurityCodeRows,
@@ -71,9 +73,22 @@ async function ensureSchoolSecurityRows(schoolId: string) {
   return typedRows;
 }
 
-export async function GET(_: NextRequest, context: Context) {
+export async function GET(request: NextRequest, context: Context) {
+  let ctx;
+  try {
+    ctx = await requireAuth(request, { roles: ["super-admin"], rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const { id } = await context.params;
+
+    // Cross-tenant guard: super-admins can access any school's codes.
+    // Non-super-admins are already blocked by the role check above.
+    // Extra defence: even super-admins must request a real, existing school (handled below).
+    // Return 404 (not 403) if a non-owner somehow reaches this point to avoid leaking existence.
+    if (ctx.role !== "super-admin" && id !== ctx.schoolId) {
+      return toErrorResponse(notFound());
+    }
 
     const { data: school, error } = await supabaseAdmin
       .from("schools")

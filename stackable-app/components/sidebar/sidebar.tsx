@@ -60,7 +60,7 @@ type SidebarGroupItem = {
 
 type SidebarItem = SidebarLeafItem | SidebarGroupItem;
 
-type SidebarSection = {
+export type SidebarSection = {
   ariaLabel: string;
   items: SidebarItem[];
   key: string;
@@ -71,6 +71,8 @@ type SidebarProps = {
   isMobileOpen: boolean;
   onCloseMobile: () => void;
   onToggleCollapse: () => void;
+  /** Per-dashboard navigation. Defaults to the main dashboard sections. */
+  sections?: SidebarSection[];
 };
 
 const iconClassName = "h-5 w-5 shrink-0";
@@ -357,8 +359,11 @@ function isPathActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function findActiveGroupKey(pathname: string) {
-  for (const section of SIDEBAR_SECTIONS) {
+function findActiveGroupKey(
+  pathname: string,
+  sections: SidebarSection[] = SIDEBAR_SECTIONS,
+) {
+  for (const section of sections) {
     for (const item of section.items) {
       if (
         item.type === "group" &&
@@ -529,17 +534,21 @@ export default function Sidebar({
   isMobileOpen,
   onCloseMobile,
   onToggleCollapse,
+  sections: sectionsProp,
 }: SidebarProps) {
   const pathname = usePathname();
+  const sections = sectionsProp ?? SIDEBAR_SECTIONS;
   const [openState, setOpenState] = useState<{
     key: string | null;
     pathname: string;
   }>({
-    key: findActiveGroupKey(pathname),
+    key: findActiveGroupKey(pathname, sections),
     pathname,
   });
   const openKey =
-    openState.pathname === pathname ? openState.key : findActiveGroupKey(pathname);
+    openState.pathname === pathname
+      ? openState.key
+      : findActiveGroupKey(pathname, sections);
 
   return (
     <>
@@ -564,50 +573,50 @@ export default function Sidebar({
           isCollapsed && "lg:w-24",
         )}
       >
-        <div className="sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden">
-          <div className="sidebar-scroll-inner min-h-full">
-            <div className="sticky top-0 z-20 bg-[#fffefb] px-4 pb-3 pt-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center justify-center">
-                  <Image
-                    src="/logos/Symbol Light.webp"
-                    alt="school-logo"
-                    className="w-[45px]"
-                    width={500}
-                    height={500}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={onToggleCollapse}
-                  className="hidden h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-[#f9f7f7] text-black shadow-lg transition-[transform,colors] duration-300 hover:-translate-y-[2px] hover:scale-[1.05] hover:border-black hover:bg-black hover:text-white lg:flex"
-                  aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                >
-                  {isCollapsed ? (
-                    <ChevronRight className="h-5 w-5" strokeWidth={1.95} />
-                  ) : (
-                    <ChevronLeft className="h-5 w-5" strokeWidth={1.95} />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={onCloseMobile}
-                  className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-[#f9f7f7] text-black shadow-lg transition-[transform,colors] duration-300 hover:-translate-y-[2px] hover:scale-[1.05] hover:border-black hover:bg-black hover:text-white lg:hidden"
-                  aria-label="Close sidebar"
-                >
-                  <ChevronLeft className="h-5 w-5" strokeWidth={1.95} />
-                </button>
-              </div>
-
-              <div className="mt-3">
-                <SectionDivider collapsed={isCollapsed} />
-              </div>
+        <div className="px-4 pb-3 pt-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-center">
+              <Image
+                src="/logos/Symbol Light.webp"
+                alt="school-logo"
+                className="w-[45px]"
+                width={500}
+                height={500}
+              />
             </div>
 
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="hidden h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-[#f9f7f7] text-black shadow-lg transition-[transform,colors] duration-300 hover:-translate-y-[2px] hover:scale-[1.05] hover:border-black hover:bg-black hover:text-white lg:flex"
+              aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-5 w-5" strokeWidth={1.95} />
+              ) : (
+                <ChevronLeft className="h-5 w-5" strokeWidth={1.95} />
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={onCloseMobile}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-200 bg-[#f9f7f7] text-black shadow-lg transition-[transform,colors] duration-300 hover:-translate-y-[2px] hover:scale-[1.05] hover:border-black hover:bg-black hover:text-white lg:hidden"
+              aria-label="Close sidebar"
+            >
+              <ChevronLeft className="h-5 w-5" strokeWidth={1.95} />
+            </button>
+          </div>
+
+          <div className="mt-3">
+            <SectionDivider collapsed={isCollapsed} />
+          </div>
+        </div>
+
+        <div className="sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden">
+          <div className="sidebar-scroll-inner min-h-full">
             <div className="space-y-3 px-4 pb-4 pt-4">
-              {SIDEBAR_SECTIONS.map((section, sectionIndex) => (
+              {sections.map((section, sectionIndex) => (
                 <div key={section.key} className="space-y-3">
                   <nav aria-label={section.ariaLabel}>
                     <ul className="space-y-2">
@@ -648,7 +657,7 @@ export default function Sidebar({
                     </ul>
                   </nav>
 
-                  {sectionIndex < SIDEBAR_SECTIONS.length - 1 ? (
+                  {sectionIndex < sections.length - 1 ? (
                     <SectionDivider collapsed={isCollapsed} />
                   ) : null}
                 </div>
@@ -682,12 +691,11 @@ export default function Sidebar({
         <style jsx>{`
           .sidebar-scroll {
             direction: rtl;
-            scrollbar-width: none;
-            scrollbar-color: transparent transparent;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(241, 159, 36, 0) rgba(209, 213, 219, 0);
           }
 
           .sidebar-scroll:hover {
-            scrollbar-width: thin;
             scrollbar-color: #f19f24 #d1d5db;
           }
 
@@ -696,27 +704,28 @@ export default function Sidebar({
           }
 
           .sidebar-scroll::-webkit-scrollbar {
-            width: 0;
-            height: 0;
-            background: transparent;
-          }
-
-          .sidebar-scroll:hover::-webkit-scrollbar {
             width: 1px;
+            height: 1px;
+            background: transparent;
           }
 
-          .sidebar-scroll::-webkit-scrollbar-track,
+          .sidebar-scroll::-webkit-scrollbar-track {
+            background-color: rgba(209, 213, 219, 0);
+            transition: background-color 0.8s ease;
+          }
+
           .sidebar-scroll::-webkit-scrollbar-thumb {
-            background: transparent;
+            background-color: rgba(241, 159, 36, 0);
+            border-radius: 9999px;
+            transition: background-color 0.8s ease;
           }
 
           .sidebar-scroll:hover::-webkit-scrollbar-track {
-            background: #d1d5db;
+            background-color: rgba(209, 213, 219, 0.95);
           }
 
           .sidebar-scroll:hover::-webkit-scrollbar-thumb {
-            background: #f19f24;
-            border-radius: 9999px;
+            background-color: #f19f24;
           }
         `}</style>
       </aside>

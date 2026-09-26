@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { SUBJECT_BACKGROUND_BUCKET } from "@/lib/subjects";
 import { getSubjectDirectoryData, getSubjectFormOptions } from "@/lib/subjects-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
+import { listSubjectsWithMeta } from "@/lib/repositories/subject.repo";
 
 type SubjectCreatePayload = {
   existing_subject_id?: number | null;
@@ -61,9 +64,28 @@ async function ensureSubjectBackgroundBucket() {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  let auth;
   try {
-    const data = await getSubjectDirectoryData();
+    auth = await requireAuth(request, { pageKey: "subjects", rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
+  if (process.env.DATA_BACKEND === "prisma") {
+    try {
+      const data = await listSubjectsWithMeta({ schoolId: auth.schoolId });
+      return NextResponse.json({ ok: true, data });
+    } catch (error) {
+      console.error("subjects directory route error (prisma)", error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Unexpected server error." },
+        { status: 500 },
+      );
+    }
+  }
+
+  try {
+    // Pass schoolId so the Supabase fallback is scoped to this school (tenant safety).
+    const data = await getSubjectDirectoryData({ schoolId: auth.schoolId });
     return NextResponse.json({ ok: true, data });
   } catch (error) {
     console.error("subjects directory route error", error);
@@ -75,6 +97,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  let authCtx;
+  try {
+    authCtx = await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     let body: SubjectCreatePayload = {};
     let backgroundImage: File | null = null;
@@ -90,7 +117,8 @@ export async function POST(request: NextRequest) {
       body = (await request.json()) as SubjectCreatePayload;
     }
 
-    const schoolId = asText(body.school_id);
+    // schoolId comes from the session — never trust the request body for tenancy.
+    const schoolId = authCtx.schoolId;
     const classIds = Array.isArray(body.class_ids) ? body.class_ids.filter(Boolean) : [];
     const teacherAssignments = Array.isArray(body.teacher_assignments)
       ? body.teacher_assignments.filter((item) => item?.teacher_id)

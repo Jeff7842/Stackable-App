@@ -9,6 +9,7 @@ import { Plus_Jakarta_Sans, Manrope, Space_Grotesk } from 'next/font/google';
 import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
 import { ConfirmationProvider } from "../components/confirmation/ConfirmationProvider";
+import { QueryProvider } from "@/components/providers/QueryProvider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
 import Script from 'next/script';
@@ -125,9 +126,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} ${plusJakartaSans.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased `}>
         <ThemeProvider>
-          <ConfirmationProvider>
-            <ToastProvider>{children}</ToastProvider>
-          </ConfirmationProvider>
+          <QueryProvider>
+            <ConfirmationProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </ConfirmationProvider>
+          </QueryProvider>
         </ThemeProvider>
 
             {/*Development version*/}

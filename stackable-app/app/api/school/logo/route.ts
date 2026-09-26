@@ -1,8 +1,14 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 
 export async function POST(req: NextRequest) {
+  try {
+    await requireAuth(req, { roles: ["admin", "super-admin"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const formData = await req.formData();
     const file = formData.get("file");

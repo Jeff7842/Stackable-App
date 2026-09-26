@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { formatClassLabel, numericScore, scoreToGrade } from "@/lib/teachers";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse, notFound } from "@/lib/api/errors";
 
 type Context = {
   params: Promise<{ id: string }>;
@@ -70,7 +72,12 @@ function getStudentName(student: StudentRow) {
   return fullName || "Unnamed student";
 }
 
-export async function GET(_: NextRequest, context: Context) {
+export async function GET(request: NextRequest, context: Context) {
+  let ctx;
+  try {
+    ctx = await requireAuth(request, { pageKey: "teachers", rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const { id } = await context.params;
 
@@ -106,6 +113,11 @@ export async function GET(_: NextRequest, context: Context) {
     }
 
     const teacher = teacherRes.data as TeacherRow;
+
+    // Cross-tenant guard: return 404 (not 403) to avoid leaking existence.
+    if (teacher.school_id !== ctx.schoolId) {
+      return toErrorResponse(notFound());
+    }
 
     const [schoolRes, bridgeRes, ownedClassesRes, timetableRes] =
       await Promise.all([

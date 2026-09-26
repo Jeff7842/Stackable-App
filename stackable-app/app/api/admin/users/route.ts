@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
+import type { Role } from "@/lib/validation/shared";
+import { listUsersWithPermissions } from "@/lib/repositories/user.repo";
+
+// Only admins manage other users.
+const USER_ADMIN_ROLES: Role[] = ["admin", "super-admin"];
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,11 +44,22 @@ function isAllowedStatus(value: string) {
 
 export async function GET(request: NextRequest) {
   try {
+    await requireAuth(request, { roles: USER_ADMIN_ROLES, rateLimit: "read" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
+  try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search")?.trim() ?? "";
     const role = searchParams.get("role") ?? "all";
     const status = searchParams.get("status") ?? "all";
     const schoolId = searchParams.get("schoolId") ?? "all";
+
+    if (process.env.DATA_BACKEND === "prisma") {
+      const users = await listUsersWithPermissions({ schoolId, role, status, search });
+      return NextResponse.json({ users, pageKeys: PAGE_KEYS });
+    }
 
     let query = supabase
       .from("users")
@@ -134,6 +152,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  try {
+    await requireAuth(request, { roles: USER_ADMIN_ROLES, rateLimit: "mutation" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
   try {
     const body = await request.json();
 
@@ -245,6 +269,12 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    await requireAuth(request, { roles: USER_ADMIN_ROLES, rateLimit: "mutation" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
+  try {
     const body = await request.json();
 
     const {
@@ -345,6 +375,12 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
+  try {
+    await requireAuth(request, { roles: ["super-admin"], rateLimit: "mutation" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");

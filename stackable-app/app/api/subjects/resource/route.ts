@@ -1,11 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse, notFound } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
+  let ctx;
+  try {
+    ctx = await requireAuth(request, { rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const path = request.nextUrl.searchParams.get("path");
     if (!path) {
       return NextResponse.json({ error: "path is required." }, { status: 400 });
+    }
+
+    // Storage paths are: {schoolId}/{subjectId}/{classId}/...
+    // The first segment is the school UUID — verify it matches the caller's school.
+    const pathSchoolId = path.split("/")[0];
+    if (!pathSchoolId || pathSchoolId !== ctx.schoolId) {
+      return toErrorResponse(notFound());
     }
 
     const signed = await supabaseAdmin.storage

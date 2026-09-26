@@ -6,6 +6,8 @@ import {
   getSubjectCourseworkData,
 } from "@/lib/subjects-server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 
 type Context = {
   params: Promise<{ id: string }>;
@@ -35,7 +37,11 @@ function asNumber(value: FormDataEntryValue | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export async function GET(_: NextRequest, context: Context) {
+export async function GET(request: NextRequest, context: Context) {
+  try {
+    await requireAuth(request, { pageKey: "subjects", rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const { id } = await context.params;
     const data = await getSubjectCourseworkData(id);
@@ -50,6 +56,10 @@ export async function GET(_: NextRequest, context: Context) {
 }
 
 export async function POST(request: NextRequest, context: Context) {
+  try {
+    await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const { id } = await context.params;
     const offering = await getSchoolSubjectOrThrow(id);
@@ -179,6 +189,10 @@ export async function POST(request: NextRequest, context: Context) {
 }
 
 export async function PATCH(request: NextRequest, context: Context) {
+  try {
+    await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const { id } = await context.params;
     const body = (await request.json()) as CourseworkPatchBody;

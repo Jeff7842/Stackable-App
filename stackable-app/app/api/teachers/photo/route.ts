@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { TEACHERS_PROFILE_BUCKET } from "@/lib/teachers";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse, notFound } from "@/lib/api/errors";
 
 export async function GET(request: NextRequest) {
+  let ctx;
+  try {
+    ctx = await requireAuth(request, { rateLimit: "read" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const filePath = request.nextUrl.searchParams.get("path")?.trim();
 
@@ -11,6 +18,24 @@ export async function GET(request: NextRequest) {
         { error: "Missing teacher photo path." },
         { status: 400 },
       );
+    }
+
+    // Storage paths are: teachers/{teacherId}/...
+    // Extract the teacher ID and verify it belongs to the caller's school.
+    const pathParts = filePath.split("/");
+    const teacherId = pathParts[1]; // index 0 = "teachers", index 1 = UUID
+    if (!teacherId) {
+      return toErrorResponse(notFound());
+    }
+
+    const { data: teacherRow, error: teacherError } = await supabaseAdmin
+      .from("teachers")
+      .select("school_id")
+      .eq("id", teacherId)
+      .maybeSingle();
+
+    if (teacherError || !teacherRow || teacherRow.school_id !== ctx.schoolId) {
+      return toErrorResponse(notFound());
     }
 
     const { data, error } = await supabaseAdmin.storage

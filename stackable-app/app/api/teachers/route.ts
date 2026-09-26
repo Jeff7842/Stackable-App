@@ -6,6 +6,9 @@ import {
   formatClassLabel,
   TEACHERS_PROFILE_BUCKET,
 } from "@/lib/teachers";
+import { listTeachersWithMeta } from "@/lib/repositories/teacher.repo";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 
 type TeacherRow = {
   id: string;
@@ -108,7 +111,30 @@ async function rollbackTeacherCreate({
   await removeUploadedTeacherPhoto(filePath);
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // 1. Must be signed in (closes the old "anyone can call this" hole).
+  let auth;
+  try {
+    auth = await requireAuth(request, { pageKey: "teachers", rateLimit: "read" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
+
+  // 2. New path: read from Prisma/Neon when the switch is flipped, scoped to the
+  //    signed-in user's school. Same JSON shape as before.
+  if (process.env.DATA_BACKEND === "prisma") {
+    try {
+      const data = await listTeachersWithMeta({ schoolId: auth.schoolId });
+      return NextResponse.json({ ok: true, data });
+    } catch (error) {
+      console.error("teachers list route error (prisma)", error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Unexpected server error." },
+        { status: 500 },
+      );
+    }
+  }
+
   try {
     const [teachersRes, schoolsRes, subjectsRes, classesRes, timetableRes] =
       await Promise.all([
@@ -132,12 +158,14 @@ export async function GET() {
               class_teacher
             `,
           )
+          .eq("school_id", auth.schoolId)
           .order("created_at", { ascending: false }),
-        supabaseAdmin.from("schools").select("id, name"),
+        supabaseAdmin.from("schools").select("id, name").eq("id", auth.schoolId),
         supabaseAdmin.from("subjects").select("id, subject_name"),
         supabaseAdmin
           .from("classes")
-          .select("id, class_name, stream, class_teacher_id"),
+          .select("id, class_name, stream, class_teacher_id")
+          .eq("school_id", auth.schoolId),
         supabaseAdmin
           .from("teacher_timetables")
           .select("teacher_id, class_id"),
@@ -208,6 +236,11 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  let auth;
+  try {
+    auth = await requireAuth(request, { roles: ["admin", "super-admin", "manager"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   let uploadedFilePath: string | null = null;
   let createdTeacherId: string | null = null;
   let assignedClassId: string | null = null;
@@ -219,7 +252,8 @@ export async function POST(request: NextRequest) {
     const email = asText(formData.get("email"));
     const phone = asText(formData.get("phone"));
     const admissionNumber = asText(formData.get("admission_number"));
-    const schoolId = asText(formData.get("school_id"));
+    // schoolId comes from the session — never trust the request body for tenancy.
+    const schoolId = auth.schoolId;
     const classId = asText(formData.get("class_id"));
     const subjectId = asNumberValue(formData.get("subject_id"));
     const photo = formData.get("photo");

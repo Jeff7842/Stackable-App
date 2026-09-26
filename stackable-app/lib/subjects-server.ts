@@ -432,7 +432,7 @@ export async function getSchoolSubjectOrThrow(schoolSubjectId: string) {
   return offering;
 }
 
-export async function getSubjectDirectoryData(): Promise<SubjectDirectoryPayload> {
+export async function getSubjectDirectoryData(opts: { schoolId?: string } = {}): Promise<SubjectDirectoryPayload> {
   const [
     options,
     schoolSubjectsRes,
@@ -447,7 +447,9 @@ export async function getSubjectDirectoryData(): Promise<SubjectDirectoryPayload
     classPerformanceRes,
   ] = await Promise.all([
     getSubjectFormOptions(),
-    supabaseAdmin.from("school_subjects").select("id, school_id, subject_id, created_at"),
+    opts.schoolId
+      ? supabaseAdmin.from("school_subjects").select("id, school_id, subject_id, created_at").eq("school_id", opts.schoolId)
+      : supabaseAdmin.from("school_subjects").select("id, school_id, subject_id, created_at"),
     supabaseAdmin.from("subjects").select(`
       id,
       subject_name,

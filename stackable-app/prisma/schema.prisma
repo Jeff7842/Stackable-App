@@ -1,0 +1,684 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model attendance {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_type      String
+  user_id        String    @db.Uuid
+  school_id      String    @db.Uuid
+  school_name    String
+  school_no      BigInt
+  clock_in       DateTime  @default(now()) @db.Timestamptz(6)
+  clock_out      DateTime? @db.Timestamptz(6)
+  status         String    @default("present")
+  remarks        String?
+  created_at     DateTime  @default(now()) @db.Timestamptz(6)
+  reference_code String    @unique
+  schools        schools   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "attendance_school_fk")
+
+  @@index([clock_in], map: "idx_attendance_clock_in")
+  @@index([school_id], map: "idx_attendance_school_id")
+  @@index([user_id], map: "idx_attendance_user_id")
+  @@index([user_type], map: "idx_attendance_user_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model class_attendance {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  class_id         String    @db.Uuid
+  date             DateTime  @db.Date
+  students_present Int
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+  classes          classes   @relation(fields: [class_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "attendance_class_fk")
+
+  @@unique([class_id, date], map: "class_date_unique")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model class_subject_performance {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  class_id          String           @db.Uuid
+  subject_id        BigInt
+  average_score     Decimal?         @db.Decimal(5, 2)
+  average_grade     String?
+  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
+  school_subject_id String?          @db.Uuid
+  classes           classes          @relation(fields: [class_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "class_perf_class_fk")
+  subjects          subjects         @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "class_perf_subject_fk")
+  school_subjects   school_subjects? @relation(fields: [school_subject_id], references: [id], onUpdate: NoAction, map: "class_subject_performance_school_subject_fk")
+
+  @@unique([class_id, subject_id], map: "class_subject_unique")
+  @@index([school_subject_id], map: "idx_class_subject_performance_school_subject_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model classes {
+  id                                          String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id                                   String                        @db.Uuid
+  class_name                                  String
+  stream                                      String?
+  class_teacher_id                            String?                       @db.Uuid
+  class_prefect_id                            String?                       @db.Uuid
+  total_students                              Int?                          @default(0)
+  students_present_today                      Int?                          @default(0)
+  position_in_stream                          Int?
+  position_overall                            Int?
+  class_performance                           Decimal?                      @db.Decimal(5, 2)
+  created_at                                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  updated_at                                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  teacher_id                                  String?                       @db.Uuid
+  class_attendance                            class_attendance[]
+  class_subject_performance                   class_subject_performance[]
+  schools                                     schools                       @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "classes_school_fk")
+  teachers_classes_class_teacher_idToteachers teachers?                     @relation("classes_class_teacher_idToteachers", fields: [class_teacher_id], references: [id], onUpdate: NoAction, map: "classes_teacher_fk")
+  teachers_classes_teacher_idToteachers       teachers?                     @relation("classes_teacher_idToteachers", fields: [teacher_id], references: [id], onUpdate: NoAction)
+  grading_reports                             grading_reports[]
+  school_subject_classes                      school_subject_classes[]
+  students                                    students[]
+  teacher_student_assignments                 teacher_student_assignments[]
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model grading_reports {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_id        String           @db.Uuid
+  subject_id        BigInt
+  term              String
+  class_id          String           @db.Uuid
+  grade             String
+  teacher_id        String           @db.Uuid
+  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
+  school_subject_id String?          @db.Uuid
+  raw_score         Decimal?         @db.Decimal(6, 2)
+  normalized_pct    Decimal?         @db.Decimal(6, 2)
+  remarks           String?
+  updated_at        DateTime         @default(now()) @db.Timestamptz(6)
+  classes           classes          @relation(fields: [class_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_gr_class")
+  subjects          subjects         @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_gr_subject")
+  teachers          teachers         @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_gr_teacher")
+  school_subjects   school_subjects? @relation(fields: [school_subject_id], references: [id], onUpdate: NoAction, map: "grading_reports_school_subject_fk")
+
+  @@index([school_subject_id], map: "idx_grading_reports_school_subject_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model parent {
+  id                                  String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                             String            @unique @db.Uuid
+  school_id                           String            @db.Uuid
+  school_name                         String
+  phone                               BigInt
+  alternate_phone                     String?
+  message_count                       Int               @default(0)
+  status                              String            @default("active")
+  created_at                          DateTime          @default(now()) @db.Timestamptz(6)
+  schools_parent_school_nameToschools schools           @relation("parent_school_nameToschools", fields: [school_name], references: [name], onDelete: Cascade, onUpdate: NoAction, map: "name_school_fk")
+  schools_parent_school_idToschools   schools           @relation("parent_school_idToschools", fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "parents_school_fk")
+  users                               users             @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "parents_user_fk")
+  student_parents                     student_parents[]
+
+  @@unique([school_id, phone], map: "parents_phone_school_unique")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model school_profiles {
+  school_id  String   @id @db.Uuid
+  head_name  String?
+  owner_name String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  location   String   @default("EMPTY")
+  schools    schools  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model school_security_codes {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id    String    @db.Uuid
+  code_hash    String
+  code_label   String
+  is_active    Boolean   @default(true)
+  used_count   Int       @default(0)
+  last_used_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime  @default(now()) @db.Timestamptz(6)
+  created_by   String?   @db.Uuid
+  users        users?    @relation(fields: [created_by], references: [id], onUpdate: NoAction)
+  schools      schools   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([school_id, code_label], map: "uq_school_security_code_label")
+  @@index([school_id], map: "idx_school_security_codes_school_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model school_subject_classes {
+  id                                 String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_subject_id                  String                               @db.Uuid
+  class_id                           String                               @db.Uuid
+  display_order                      Int                                  @default(0)
+  created_at                         DateTime                             @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime                             @default(now()) @db.Timestamptz(6)
+  classes                            classes                              @relation(fields: [class_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subject_classes_class_fk")
+  school_subjects                    school_subjects                      @relation(fields: [school_subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subject_classes_school_subject_fk")
+  school_subject_teacher_assignments school_subject_teacher_assignments[]
+
+  @@unique([school_subject_id, class_id], map: "school_subject_classes_unique")
+  @@index([class_id], map: "idx_school_subject_classes_class_id")
+  @@index([school_subject_id], map: "idx_school_subject_classes_school_subject_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model school_subject_teacher_assignments {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_subject_id       String                  @db.Uuid
+  school_subject_class_id String?                 @db.Uuid
+  teacher_id              String                  @db.Uuid
+  assignment_role         String                  @default("teacher")
+  is_primary              Boolean                 @default(false)
+  created_at              DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at              DateTime                @default(now()) @db.Timestamptz(6)
+  school_subject_classes  school_subject_classes? @relation(fields: [school_subject_class_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subject_teacher_assignments_school_subject_class_fk")
+  school_subjects         school_subjects         @relation(fields: [school_subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subject_teacher_assignments_school_subject_fk")
+  teachers                teachers                @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subject_teacher_assignments_teacher_fk")
+
+  @@unique([school_subject_id, school_subject_class_id, teacher_id, assignment_role], map: "school_subject_teacher_assignments_unique")
+  @@index([school_subject_id], map: "idx_school_subject_teacher_assignments_school_subject_id")
+  @@index([teacher_id], map: "idx_school_subject_teacher_assignments_teacher_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model school_subjects {
+  id                                 String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id                          String                               @db.Uuid
+  subject_id                         BigInt
+  school_subject_seq                 Int
+  custom_subject_code                String                               @unique @db.VarChar(7)
+  local_subject_name                 String?
+  local_short_name                   String?
+  strapline                          String?                              @db.VarChar(120)
+  description                        String?
+  abstract_image_url                 String?
+  theme_token                        String?
+  hod_teacher_id                     String?                              @db.Uuid
+  status                             String                               @default("active")
+  visibility                         String                               @default("internal")
+  is_core                            Boolean                              @default(true)
+  is_elective                        Boolean                              @default(false)
+  requires_lab                       Boolean                              @default(false)
+  pass_mark                          Decimal?                             @default(40.00) @db.Decimal(5, 2)
+  ranking_weight                     Decimal                              @default(1.00) @db.Decimal(6, 2)
+  weekly_lessons                     Int?                                 @default(0)
+  notes                              String?
+  created_at                         DateTime                             @default(now()) @db.Timestamptz(6)
+  updated_at                         DateTime                             @default(now()) @db.Timestamptz(6)
+  class_subject_performance          class_subject_performance[]
+  grading_reports                    grading_reports[]
+  school_subject_classes             school_subject_classes[]
+  school_subject_teacher_assignments school_subject_teacher_assignments[]
+  teachers                           teachers?                            @relation(fields: [hod_teacher_id], references: [id], onUpdate: NoAction, map: "school_subjects_hod_teacher_fk")
+  schools                            schools                              @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subjects_school_fk")
+  subjects                           subjects                             @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "school_subjects_subject_fk")
+  student_subjects                   student_subjects[]
+  teacher_subjects                   teacher_subjects[]
+
+  @@unique([school_id, school_subject_seq], map: "school_subjects_unique_school_seq")
+  @@unique([school_id, subject_id], map: "school_subjects_unique_school_subject")
+  @@index([hod_teacher_id], map: "idx_school_subjects_hod_teacher_id")
+  @@index([school_id], map: "idx_school_subjects_school_id")
+  @@index([status], map: "idx_school_subjects_status")
+  @@index([subject_id], map: "idx_school_subjects_subject_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model schools {
+  no                                                   BigInt                        @unique(map: "schools_school_id_key") @default(autoincrement())
+  created_at                                           DateTime                      @default(now()) @db.Timestamptz(6)
+  name                                                 String                        @unique
+  code                                                 String                        @unique @default("")
+  status                                               String                        @default("'pending::text'")
+  updated_at                                           DateTime                      @default(now()) @db.Timestamptz(6)
+  location                                             String?
+  email                                                String?
+  phone_1                                              BigInt
+  phone_2                                              BigInt?
+  phone_3                                              BigInt?
+  id                                                   String                        @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  // Was DB function generate_school_id() in Supabase. Neon has no such function,
+  // so the app (school repository) now generates this human-facing school code.
+  school_id                                            BigInt
+  logo                                                 String?
+  late_time                                            DateTime?                     @default(dbgenerated("'08:30:00'::time without time zone")) @db.Time(6)
+  subscription_package                                 String                        @default("Seedling")
+  subscription_status                                  String                        @default("inactive")
+  subscription_started_at                              DateTime?                     @db.Timestamptz(6)
+  subscription_expires_at                              DateTime?                     @db.Timestamptz(6)
+  expected_users                                       Int                           @default(0)
+  expected_teachers                                    Int                           @default(0)
+  expected_admins                                      Int                           @default(0)
+  expected_students                                    Int                           @default(0)
+  expected_parents                                     Int                           @default(0)
+  expected_staff                                       Int                           @default(0)
+  code_change_count                                    String                        @default("0")
+  pending_code_change_at                               DateTime?                     @db.Timestamptz(6)
+  attendance                                           attendance[]
+  classes                                              classes[]
+  parent_parent_school_nameToschools                   parent[]                      @relation("parent_school_nameToschools")
+  parent_parent_school_idToschools                     parent[]                      @relation("parent_school_idToschools")
+  school_profiles                                      school_profiles?
+  school_security_codes                                school_security_codes[]
+  school_subjects                                      school_subjects[]
+  student_parents_student_parents_school_idToschools   student_parents[]             @relation("student_parents_school_idToschools")
+  student_parents_student_parents_school_nameToschools student_parents[]             @relation("student_parents_school_nameToschools")
+  student_subjects                                     student_subjects[]
+  students_students_school_nameToschools               students[]                    @relation("students_school_nameToschools")
+  students_students_school_idToschools                 students[]                    @relation("students_school_idToschools")
+  teacher_student_assignments                          teacher_student_assignments[]
+  teacher_subjects                                     teacher_subjects[]
+  teacher_timetables                                   teacher_timetables[]
+  teachers                                             teachers[]
+  user_sessions                                        user_sessions[]
+  users                                                users[]
+
+  @@id([id, created_at, code, no, school_id])
+  @@index([subscription_expires_at], map: "idx_schools_subscription_expires_at")
+  @@index([subscription_package], map: "idx_schools_subscription_package")
+  @@index([subscription_status], map: "idx_schools_subscription_status")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model student_parents {
+  id                                           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  school_id                                    String   @db.Uuid
+  school_name                                  String
+  student_id                                   String   @db.Uuid
+  parent_id                                    String   @db.Uuid
+  relationship                                 String
+  description                                  String
+  is_primary                                   Boolean  @default(false)
+  primary_role                                 String?
+  created_at                                   DateTime @default(now()) @db.Timestamptz(6)
+  parent                                       parent   @relation(fields: [parent_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sp_parent_fk")
+  schools_student_parents_school_idToschools   schools  @relation("student_parents_school_idToschools", fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "sp_school_fk")
+  schools_student_parents_school_nameToschools schools  @relation("student_parents_school_nameToschools", fields: [school_name], references: [name], onDelete: Cascade, onUpdate: NoAction, map: "sp_school_name_fk")
+
+  @@unique([student_id, is_primary], map: "max_two_primary_parents_per_student", where: raw("(is_primary = true)"))
+  @@unique([student_id, parent_id], map: "sp_unique")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model student_subjects {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  student_id        String           @db.Uuid
+  subject_id        BigInt
+  teacher_id        String?          @db.Uuid
+  created_at        DateTime?        @default(now()) @db.Timestamptz(6)
+  school_subject_id String?          @db.Uuid
+  school_id         String?          @db.Uuid
+  is_active         Boolean          @default(true)
+  updated_at        DateTime         @default(now()) @db.Timestamptz(6)
+  subjects          subjects         @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "fk_subject")
+  schools           schools?         @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "student_subjects_school_fk")
+  school_subjects   school_subjects? @relation(fields: [school_subject_id], references: [id], onUpdate: NoAction, map: "student_subjects_school_subject_fk")
+
+  @@unique([student_id, subject_id], map: "student_subject_unique")
+  @@index([school_id], map: "idx_student_subjects_school_id")
+  @@index([school_subject_id], map: "idx_student_subjects_school_subject_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model students {
+  id                                    String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                               String                        @unique @db.Uuid
+  school_id                             String                        @db.Uuid
+  school_name                           String
+  admission_no                          String
+  class_id                              String?                       @db.Uuid
+  teacher_id                            String?                       @db.Uuid
+  date_of_birth                         DateTime?                     @db.Date
+  phone                                 String?
+  phone2                                String?
+  email                                 String?                       @unique
+  location                              String?
+  home_address                          String?
+  emergency_contact                     String?
+  activity                              String?
+  health_status                         String?
+  profile_picture                       String?
+  average_grade                         String?
+  other_info                            String?
+  status                                String                        @default("active")
+  created_at                            DateTime                      @default(now()) @db.Timestamptz(6)
+  first_name                            String?                       @default("NULL")
+  last_name                             String                        @default("NULL")
+  class_teacher_id                      String?                       @db.Uuid
+  schools_students_school_nameToschools schools                       @relation("students_school_nameToschools", fields: [school_name], references: [name], onDelete: Cascade, onUpdate: NoAction, map: "name_school_fk")
+  classes                               classes?                      @relation(fields: [class_id], references: [id], onUpdate: NoAction, map: "students_class_fk")
+  teachers                              teachers?                     @relation(fields: [class_teacher_id], references: [id], onUpdate: NoAction)
+  schools_students_school_idToschools   schools                       @relation("students_school_idToschools", fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "students_school_fk")
+  users                                 users                         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "students_user_fk")
+  teacher_student_assignments           teacher_student_assignments[]
+
+  @@unique([school_id, admission_no], map: "students_school_adm_unique")
+  @@index([class_id], map: "idx_students_class_id")
+  @@index([first_name, last_name], map: "idx_students_name")
+  @@index([phone], map: "idx_students_phone")
+  @@index([school_id, class_id], map: "idx_students_school_class")
+  @@index([school_id], map: "idx_students_school_id")
+  @@index([status], map: "idx_students_status")
+  @@index([teacher_id], map: "idx_students_teacher_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model subjects {
+  id                          BigInt                        @id @default(autoincrement())
+  subject_name                String                        @unique
+  subject_code                String?                       @unique
+  created_at                  DateTime?                     @default(now()) @db.Timestamptz(6)
+  acronym                     String?                       @db.VarChar(3)
+  short_name                  String?
+  strapline                   String?                       @db.VarChar(120)
+  description                 String?
+  department                  String?
+  category                    String                        @default("core")
+  subject_type                String                        @default("general")
+  education_level             String                        @default("secondary")
+  requires_lab                Boolean                       @default(false)
+  has_coursework              Boolean                       @default(true)
+  has_assessments             Boolean                       @default(true)
+  is_elective                 Boolean                       @default(false)
+  is_active                   Boolean                       @default(true)
+  default_sequence            Int?
+  theme_token                 String?
+  abstract_image_url          String?
+  updated_at                  DateTime                      @default(now()) @db.Timestamptz(6)
+  class_subject_performance   class_subject_performance[]
+  grading_reports             grading_reports[]
+  school_subjects             school_subjects[]
+  student_subjects            student_subjects[]
+  teacher_student_assignments teacher_student_assignments[]
+  teacher_subjects            teacher_subjects[]
+  teacher_timetables          teacher_timetables[]
+  teachers                    teachers[]
+
+  @@index([category], map: "idx_subjects_category")
+  @@index([default_sequence], map: "idx_subjects_default_sequence")
+  @@index([department], map: "idx_subjects_department")
+  @@index([is_active], map: "idx_subjects_is_active")
+  @@index([subject_type], map: "idx_subjects_subject_type")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model teacher_student_assignments {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacher_id String    @db.Uuid
+  student_id String    @db.Uuid
+  subject_id BigInt?
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  class_id   String    @db.Uuid
+  school_id  String    @db.Uuid
+  classes    classes   @relation(fields: [class_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teacher_student_assignments_class_fk")
+  schools    schools   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teacher_student_assignments_school_fk")
+  students   students  @relation(fields: [student_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subjects   subjects? @relation(fields: [subject_id], references: [id], onUpdate: NoAction)
+  teachers   teachers  @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model teacher_subjects {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacher_id        String           @db.Uuid
+  subject_id        BigInt
+  school_id         String           @db.Uuid
+  is_primary        Boolean          @default(false)
+  created_at        DateTime         @default(now()) @db.Timestamptz(6)
+  school_subject_id String?          @db.Uuid
+  assignment_role   String           @default("teacher")
+  updated_at        DateTime         @default(now()) @db.Timestamptz(6)
+  schools           schools          @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  school_subjects   school_subjects? @relation(fields: [school_subject_id], references: [id], onUpdate: NoAction, map: "teacher_subjects_school_subject_fk")
+  subjects          subjects         @relation(fields: [subject_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  teachers          teachers         @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([teacher_id, subject_id, school_id], map: "teacher_subjects_unique")
+  @@index([school_subject_id], map: "idx_teacher_subjects_school_subject_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model teacher_timetables {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  teacher_id  String    @db.Uuid
+  school_id   String    @db.Uuid
+  day_of_week String
+  start_time  DateTime  @db.Time(6)
+  end_time    DateTime  @db.Time(6)
+  class_id    String?   @db.Uuid
+  subject_id  BigInt?
+  room        String?
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  item_type   String?   @default("class")
+  title       String?
+  notes       String?
+  schools     schools   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  subjects    subjects? @relation(fields: [subject_id], references: [id], onUpdate: NoAction)
+  teachers    teachers  @relation(fields: [teacher_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model teachers {
+  id                                         String                               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                                       String
+  email                                      String                               @unique
+  phone                                      String?
+  admission_number                           String                               @unique
+  subject_id                                 BigInt?
+  school_id                                  String                               @db.Uuid
+  profile_photo                              String?
+  status                                     String                               @default("active")
+  created_at                                 DateTime?                            @default(now()) @db.Timestamptz(6)
+  days_present                               Int                                  @default(0)
+  total_school_days                          Int                                  @default(70)
+  // Was a generated column in Supabase (days_present / total_school_days * 100).
+  // Now a plain column the teacher repository keeps up to date.
+  attendance_percentage                      Decimal?                             @db.Decimal
+  class_teacher                              Boolean                              @default(false)
+  classes_classes_class_teacher_idToteachers classes[]                            @relation("classes_class_teacher_idToteachers")
+  classes_classes_teacher_idToteachers       classes[]                            @relation("classes_teacher_idToteachers")
+  grading_reports                            grading_reports[]
+  school_subject_teacher_assignments         school_subject_teacher_assignments[]
+  school_subjects                            school_subjects[]
+  students                                   students[]
+  teacher_student_assignments                teacher_student_assignments[]
+  teacher_subjects                           teacher_subjects[]
+  teacher_timetables                         teacher_timetables[]
+  schools                                    schools                              @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "teachers_school_fk")
+  subjects                                   subjects?                            @relation(fields: [subject_id], references: [id], onUpdate: NoAction, map: "teachers_subject_fk")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_otps {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id     String    @db.Uuid
+  school_code String
+  otp_code    String
+  channel     String    @default("email")
+  expires_at  DateTime  @db.Timestamptz(6)
+  consumed_at DateTime? @db.Timestamptz(6)
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  ip_address  String?   @db.Inet
+  user_agent  String?
+  users       users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([expires_at], map: "idx_user_otps_expires_at")
+  @@index([user_id, school_code, otp_code, consumed_at, expires_at, created_at(sort: Desc)], map: "idx_user_otps_lookup")
+  @@index([school_code], map: "idx_user_otps_school_code")
+  @@index([user_id], map: "idx_user_otps_user_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_page_permissions {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  page_key   String
+  can_access Boolean  @default(true)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, page_key], map: "user_page_permissions_user_page_unique")
+  @@index([user_id], map: "idx_user_page_permissions_user_id")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_profiles {
+  user_id    String   @id @db.Uuid
+  photo_url  String?
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_sessions {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id            String    @db.Uuid
+  school_id          String    @db.Uuid
+  session_type       String
+  refresh_token_hash String
+  ip_address         String?   @db.Inet
+  user_agent         String?
+  created_at         DateTime  @default(now()) @db.Timestamptz(6)
+  expires_at         DateTime  @db.Timestamptz(6)
+  revoked_at         DateTime? @db.Timestamptz(6)
+  schools            schools   @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_sessions_school_fk")
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_sessions_user_fk")
+
+  @@index([user_id], map: "idx_user_sessions_user_id")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                    String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_at            DateTime                @default(now()) @db.Timestamptz(6)
+  updated_at            DateTime                @default(now()) @db.Timestamptz(6)
+  school_id             String                  @db.Uuid
+  school_code           String                  @default("")
+  school_adm            BigInt?
+  email                 String?
+  phone                 BigInt?
+  phone_2               BigInt?
+  password_hash         String?
+  role                  String
+  status                String                  @default("pending")
+  first_name            String
+  last_name             String
+  must_change_password  Boolean                 @default(true)
+  parent                parent?
+  school_security_codes school_security_codes[]
+  students              students?
+  user_otps             user_otps[]
+  user_page_permissions user_page_permissions[]
+  user_profiles         user_profiles?
+  user_sessions         user_sessions[]
+  schools               schools                 @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "users_school_fk")
+
+  @@unique([school_id, email], map: "users_email_school_unique")
+  @@unique([school_id, phone], map: "users_phone_school_unique")
+  @@index([email], map: "idx_users_email")
+}
+
+// ─── Better Auth tables (additive — do not alter existing models) ─────────────
+
+model ba_user {
+  id               String   @id
+  name             String
+  email            String   @unique
+  emailVerified    Boolean  @default(false)
+  image            String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  // Tenancy + role (mirrors users.school_id / users.role)
+  schoolId         String?  @db.Uuid
+  role             String?
+  twoFactorEnabled Boolean  @default(false)
+
+  accounts   ba_account[]
+  sessions   ba_session[]
+  twoFactors ba_two_factor[]
+
+  @@map("ba_users")
+}
+
+model ba_account {
+  id            String    @id
+  accountId     String
+  providerId    String
+  userId        String
+  accessToken   String?
+  refreshToken  String?
+  idToken       String?
+  expiresAt     DateTime?
+  password      String?
+
+  user ba_user @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ba_accounts")
+}
+
+model ba_session {
+  id        String   @id
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  userId    String
+
+  user ba_user @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ba_sessions")
+}
+
+model ba_verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("ba_verifications")
+}
+
+model ba_two_factor {
+  id          String @id
+  secret      String
+  backupCodes String
+  userId      String
+
+  user ba_user @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ba_two_factors")
+}

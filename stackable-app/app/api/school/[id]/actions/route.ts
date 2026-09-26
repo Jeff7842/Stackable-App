@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { generateSchoolCode } from "@/lib/school-security";
+import { requireAuth } from "@/lib/api/guard";
+import { toErrorResponse } from "@/lib/api/errors";
 
 type Context = {
   params: Promise<{ id: string }>;
@@ -29,6 +31,10 @@ async function generateUniqueSchoolCode(name: string) {
 }
 
 export async function POST(req: NextRequest, context: Context) {
+  try {
+    await requireAuth(req, { roles: ["admin", "super-admin"], rateLimit: "mutation" });
+  } catch (err) { return toErrorResponse(err); }
+
   try {
     const { id } = await context.params;
     const body = (await req.json()) as { action?: string };

@@ -4,9 +4,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { useConfirmation } from "@/components/confirmation/ConfirmationProvider";
 import { useToast } from "@/components/toast/ToastProvider";
+import { useTeachers, type TeacherListItem } from "@/hooks/useTeachers";
+import { qk } from "@/lib/query/keys";
 
+// Supabase client kept for direct mutations (freeze / delete).
+// The READ path now goes through the API route via useTeachers.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -18,33 +23,6 @@ type TeacherStatus =
   | "on_leave"
   | "retired"
   | "terminated";
-
-type TeacherRow = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string | null;
-  admission_number: string;
-  subject_id: number | null;
-  school_id: string;
-  profile_photo: string | null;
-  status: TeacherStatus;
-  created_at: string | null;
-  days_present: number | null;
-  total_school_days: number | null;
-  attendance_percentage: number | string | null;
-  class_teacher: boolean | null;
-};
-
-type SubjectOption = {
-  id: number;
-  subject_name: string;
-};
-
-type SchoolOption = {
-  id: string;
-  name: string;
-};
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
@@ -118,10 +96,36 @@ function EmptyState({ message }: { message: string }) {
 export default function TeachersPage() {
   const { confirm } = useConfirmation();
   const { showToast } = useToast();
-  const [teachers, setTeachers] = useState<TeacherRow[]>([]);
-  const [schools, setSchools] = useState<SchoolOption[]>([]);
-  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+
+  // --- DATA LOADING via hook (replaces direct Supabase reads) ---
+  const { data: teachersResponse, isLoading: loading } = useTeachers();
+  const teachers = teachersResponse?.data ?? [];
+
+  // Derive the school and subject option lists from the enriched teacher data.
+  // The API returns school_name and subject_name on each record so we don't
+  // need separate lookups — we just collect the unique values seen.
+  const schools = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of teachers) {
+      if (t.school_id && t.school_name) seen.set(t.school_id, t.school_name);
+    }
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }));
+  }, [teachers]);
+
+  const subjects = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const t of teachers) {
+      if (t.subject_id != null && t.subject_name)
+        seen.set(String(t.subject_id), t.subject_name);
+    }
+    return Array.from(seen.entries()).map(([id, subject_name]) => ({
+      id: Number(id),
+      subject_name,
+    }));
+  }, [teachers]);
+
+  // --- LOCAL UI STATE ---
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
@@ -134,6 +138,7 @@ export default function TeachersPage() {
   const [pageSize, setPageSize] = useState(10);
   const [page, setPage] = useState(1);
 
+  // Local toast helpers
   const showErrorToast = useCallback(
     (title: string, description?: string) => {
       showToast({ type: "error", title, description });
@@ -148,72 +153,9 @@ export default function TeachersPage() {
     [showToast],
   );
 
-  const subjectMap = useMemo(() => {
-    return new Map(subjects.map((subject) => [String(subject.id), subject.subject_name]));
-  }, [subjects]);
-
-  const schoolMap = useMemo(() => {
-    return new Map(schools.map((school) => [school.id, school.name]));
-  }, [schools]);
-
-  const fetchPageData = useCallback(async () => {
-    setLoading(true);
-
-    const [teachersRes, schoolsRes, subjectsRes] = await Promise.all([
-      supabase
-        .from("teachers")
-        .select(`
-          id,
-          name,
-          email,
-          phone,
-          admission_number,
-          subject_id,
-          school_id,
-          profile_photo,
-          status,
-          created_at,
-          days_present,
-          total_school_days,
-          attendance_percentage,
-          class_teacher
-        `)
-        .order("created_at", { ascending: false }),
-      supabase.from("schools").select("id, name").order("name", { ascending: true }),
-      supabase.from("subjects").select("id, subject_name").order("subject_name", { ascending: true }),
-    ]);
-
-    if (teachersRes.error) {
-      console.error("Teachers fetch failed:", {
-        message: teachersRes.error.message,
-        details: teachersRes.error.details,
-        hint: teachersRes.error.hint,
-        code: teachersRes.error.code,
-      });
-    } else {
-      setTeachers((teachersRes.data as TeacherRow[]) ?? []);
-    }
-
-    if (schoolsRes.error) {
-      console.error("Schools fetch failed:", schoolsRes.error);
-    } else {
-      setSchools((schoolsRes.data as SchoolOption[]) ?? []);
-    }
-
-    if (subjectsRes.error) {
-      console.error("Subjects fetch failed:", subjectsRes.error);
-    } else {
-      setSubjects((subjectsRes.data as SubjectOption[]) ?? []);
-    }
-
-    setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void fetchPageData();
-  }, [fetchPageData]);
-
+  // --- FILTERING / SORTING ---
+  // school_name and subject_name are embedded on each teacher so we read them
+  // directly instead of looking up in a separate map.
   const filteredTeachers = useMemo(() => {
     const q = search.trim().toLowerCase();
 
@@ -222,10 +164,8 @@ export default function TeachersPage() {
       const email = (teacher.email ?? "").toLowerCase();
       const admission = (teacher.admission_number ?? "").toLowerCase();
       const phone = (teacher.phone ?? "").toLowerCase();
-      const school = (schoolMap.get(teacher.school_id) ?? "").toLowerCase();
-      const subject = teacher.subject_id
-        ? (subjectMap.get(String(teacher.subject_id)) ?? "").toLowerCase()
-        : "";
+      const school = (teacher.school_name ?? "").toLowerCase();
+      const subject = (teacher.subject_name ?? "").toLowerCase();
 
       const matchesSearch =
         !q ||
@@ -291,8 +231,6 @@ export default function TeachersPage() {
     statusFilter,
     classTeacherFilter,
     sortBy,
-    schoolMap,
-    subjectMap,
   ]);
 
   const totalEntries = filteredTeachers.length;
@@ -324,7 +262,9 @@ export default function TeachersPage() {
   const pageStart = totalEntries === 0 ? 0 : (page - 1) * pageSize + 1;
   const pageEnd = Math.min(page * pageSize, totalEntries);
 
-  async function handleFreeze(teacher: TeacherRow) {
+  // --- MUTATIONS (still call Supabase directly; read path is via hook) ---
+
+  async function handleFreeze(teacher: TeacherListItem) {
     const nextStatus: TeacherStatus =
       teacher.status === "suspended" ? "active" : "suspended";
 
@@ -342,10 +282,19 @@ export default function TeachersPage() {
         `Could not update ${teacher.name}.`,
       );
     } else {
-      setTeachers((prev) =>
-        prev.map((item) =>
-          item.id === teacher.id ? { ...item, status: nextStatus } : item,
-        ),
+      // Optimistic cache update so the UI reflects the change immediately
+      // without waiting for the next background refetch.
+      queryClient.setQueryData(
+        qk.teachers.list(),
+        (prev: { ok: boolean; data: TeacherListItem[] } | undefined) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            data: prev.data.map((item) =>
+              item.id === teacher.id ? { ...item, status: nextStatus } : item,
+            ),
+          };
+        },
       );
       showSuccessToast(
         nextStatus === "suspended" ? "Teacher suspended" : "Teacher activated",
@@ -356,7 +305,7 @@ export default function TeachersPage() {
     setBusyId(null);
   }
 
-  async function handleDelete(teacher: TeacherRow) {
+  async function handleDelete(teacher: TeacherListItem) {
     const ok = await confirm({
       title: "Delete teacher?",
       message: `Delete ${teacher.name}? This action cannot be undone.`,
@@ -375,7 +324,17 @@ export default function TeachersPage() {
       console.error("Teacher delete failed:", error);
       showErrorToast("Delete failed", `Could not delete ${teacher.name}.`);
     } else {
-      setTeachers((prev) => prev.filter((item) => item.id !== teacher.id));
+      // Remove the deleted teacher from the cache immediately.
+      queryClient.setQueryData(
+        qk.teachers.list(),
+        (prev: { ok: boolean; data: TeacherListItem[] } | undefined) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            data: prev.data.filter((item) => item.id !== teacher.id),
+          };
+        },
+      );
       showSuccessToast(
         "Teacher deleted",
         `${teacher.name} was removed successfully.`,
@@ -733,13 +692,11 @@ export default function TeachersPage() {
                       </td>
 
                       <td className="px-5 py-4">
-                        {schoolMap.get(teacher.school_id) ?? "—"}
+                        {teacher.school_name ?? "—"}
                       </td>
 
                       <td className="px-5 py-4">
-                        {teacher.subject_id
-                          ? (subjectMap.get(String(teacher.subject_id)) ?? "—")
-                          : "—"}
+                        {teacher.subject_name ?? "—"}
                       </td>
 
                       <td className="px-5 py-4">{teacher.phone || "—"}</td>
@@ -753,7 +710,7 @@ export default function TeachersPage() {
                       <td className="px-5 py-4">
                         <span
                           className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClasses(
-                            teacher.status,
+                            teacher.status as TeacherStatus,
                           )}`}
                         >
                           {teacher.status.replace("_", " ")}
@@ -917,7 +874,7 @@ export default function TeachersPage() {
 
                   <span
                     className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold capitalize ${statusClasses(
-                      teacher.status,
+                      teacher.status as TeacherStatus,
                     )}`}
                   >
                     {teacher.status.replace("_", " ")}
@@ -928,16 +885,14 @@ export default function TeachersPage() {
                   <div>
                     <p className="text-xs uppercase tracking-wide text-gray-400">School</p>
                     <p className="mt-1 font-medium text-gray-800">
-                      {schoolMap.get(teacher.school_id) ?? "—"}
+                      {teacher.school_name ?? "—"}
                     </p>
                   </div>
 
                   <div>
                     <p className="text-xs uppercase tracking-wide text-gray-400">Subject</p>
                     <p className="mt-1 font-medium text-gray-800">
-                      {teacher.subject_id
-                        ? (subjectMap.get(String(teacher.subject_id)) ?? "—")
-                        : "—"}
+                      {teacher.subject_name ?? "—"}
                     </p>
                   </div>
 
