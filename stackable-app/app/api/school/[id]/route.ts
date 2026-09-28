@@ -1,102 +1,92 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/api/guard";
-import { toErrorResponse } from "@/lib/api/errors";
+import { buildAuditContext } from "@/lib/api/audit-context";
+import { forbidden, notFound, toErrorResponse } from "@/lib/api/errors";
+import { parseJson } from "@/lib/api/validate";
+import {
+  deleteSchoolRecord,
+  findSchoolDetail,
+  findSchoolSensitiveFields,
+  updateSchoolRecord,
+} from "@/lib/repositories/school-admin.repo";
+import {
+  canAccessSchool,
+  findSensitiveSchoolChanges,
+  isPackageAllowed,
+  SENSITIVE_DENIED_MESSAGE,
+  updateSchoolSchema,
+} from "@/lib/validation/school-admin";
 
-type Context = {
-  params: Promise<{ id: string }>;
-};
+type Context = { params: Promise<{ id: string }> };
 
 export async function GET(request: NextRequest, context: Context) {
   try {
-    await requireAuth(request, { roles: ["admin", "super-admin"], rateLimit: "read" });
-  } catch (err) { return toErrorResponse(err); }
+    const auth = await requireAuth(request, { roles: ["admin", "super-admin"], rateLimit: "read" });
+    const { id } = await context.params;
+    if (!canAccessSchool(auth, id)) throw notFound("School not found.");
 
-  const { id } = await context.params;
-
-  const { data, error } = await supabaseAdmin
-    .from("school_usage_overview")
-    .select("*")
-    .eq("id", id)
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const data = await findSchoolDetail(id);
+    if (!data) throw notFound("School not found.");
+    return NextResponse.json({ data });
+  } catch (err) {
+    return toErrorResponse(err);
   }
-
-  return NextResponse.json({ data });
 }
 
 export async function PATCH(req: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(req, { roles: ["admin", "super-admin"], rateLimit: "mutation" });
-  } catch (err) { return toErrorResponse(err); }
-
-  const { id } = await context.params;
-  const body = await req.json();
-
-  const payload = {
-    name: body.name,
-    email: body.email,
-    phone_1: body.phone_1,
-    phone_2: body.phone_2 ?? null,
-    phone_3: body.phone_3 ?? null,
-    logo: body.logo,
-    status: body.status,
-    subscription_package: body.subscription_package,
-    subscription_status: body.subscription_status,
-    subscription_started_at: body.subscription_started_at,
-    subscription_expires_at: body.subscription_expires_at,
-    updated_at: new Date().toISOString(),
-  };
-
-  const { error } = await supabaseAdmin
-    .from("schools")
-    .update(payload)
-    .eq("id", id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    auth = await requireAuth(req, { roles: ["admin", "super-admin"], rateLimit: "mutation" });
+  } catch (err) {
+    return toErrorResponse(err);
   }
 
-  if (body.head_name || body.owner_name) {
-    await supabaseAdmin
-      .from("school_profiles")
-      .upsert({
-        school_id: id,
-        head_name: body.head_name ?? null,
-        owner_name: body.owner_name ?? null,
-        location: body.location ?? null,
-        updated_at: new Date().toISOString(),
-      });
-  } else if (body.phone_2 || body.phone_3 || body.location) {
-    await supabaseAdmin
-      .from("school_profiles")
-      .upsert({
-        school_id: id,
-        location: body.location ?? null,
-        updated_at: new Date().toISOString(),
-      });
-  }
+  try {
+    const { id } = await context.params;
+    if (!canAccessSchool(auth, id)) throw notFound("School not found.");
 
-  return NextResponse.json({ ok: true });
+    const body = await parseJson(req, updateSchoolSchema);
+
+    if (auth.role !== "super-admin") {
+      const current = await findSchoolSensitiveFields(id);
+      if (!current) throw notFound("School not found.");
+      if (body.subscription_package !== undefined && !isPackageAllowed(body.subscription_package, current.subscription_package)) {
+        throw forbidden(SENSITIVE_DENIED_MESSAGE);
+      }
+      const changed = findSensitiveSchoolChanges(current, body);
+      if (changed.length > 0) throw forbidden(SENSITIVE_DENIED_MESSAGE);
+    }
+
+    const { head_name, owner_name, location, ...schoolFields } = body;
+    const audit = buildAuditContext(req, auth);
+    await updateSchoolRecord(
+      id,
+      schoolFields,
+      { head_name, owner_name, location },
+      audit,
+      { fields: Object.keys(body) },
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }
 
 export async function DELETE(request: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(request, { roles: ["super-admin"], rateLimit: "mutation" });
-  } catch (err) { return toErrorResponse(err); }
-
-  const { id } = await context.params;
-
-  const { error } = await supabaseAdmin
-    .from("schools")
-    .delete()
-    .eq("id", id);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    auth = await requireAuth(request, { roles: ["super-admin"], rateLimit: "mutation", denyImpersonation: true });
+  } catch (err) {
+    return toErrorResponse(err);
   }
 
-  return NextResponse.json({ ok: true });
+  try {
+    const { id } = await context.params;
+    const audit = buildAuditContext(request, auth);
+    await deleteSchoolRecord(id, audit);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }

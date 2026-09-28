@@ -1,140 +1,91 @@
+// =============================================================================
+// /api/subjects/[id]/assessments
+//   GET  -> upcoming + past assessments for the subject offering
+//   POST -> schedule an assessment and target it at some of the offering's classes
+// The subject offering must belong to the caller's school (else 404).
+// =============================================================================
+
 import { NextRequest, NextResponse } from "next/server";
-import { getSubjectAssessmentsData, getSchoolSubjectOrThrow } from "@/lib/subjects-server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/api/guard";
-import { toErrorResponse } from "@/lib/api/errors";
+import { badRequest, toErrorResponse } from "@/lib/api/errors";
+import { parseJson } from "@/lib/api/validate";
+import { bumpCache, cached } from "@/lib/cache";
+import { createAssessment } from "@/lib/subjects-mutations";
+import {
+  SUBJECT_ASSESSMENTS_TTL_SECONDS,
+  SUBJECT_CACHE_ENTITY,
+  SUBJECT_READ_ROLES,
+  SUBJECT_WRITE_ROLES,
+  getSchoolSubjectOrThrow,
+  getSubjectAssessmentsData,
+  requireSubjectId,
+} from "@/lib/subjects-server";
+import { createAssessmentSchema } from "@/lib/validation/subjects";
+
+export const dynamic = "force-dynamic";
 
 type Context = {
   params: Promise<{ id: string }>;
 };
 
-type AssessmentCreatePayload = {
-  type?: string | null;
-  title?: string | null;
-  description?: string | null;
-  term?: string | null;
-  total_marks_raw?: number | null;
-  duration_minutes?: number | null;
-  scheduled_start_at?: string | null;
-  scheduled_end_at?: string | null;
-  target_class_ids?: string[];
-  teacher_id?: string | null;
-  created_by?: string | null;
-};
-
-function asText(value: unknown) {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function asNumber(value: unknown) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
+/** Response: { ok: true, data: SubjectAssessmentsPayload }. */
 export async function GET(request: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(request, { pageKey: "subjects", rateLimit: "read" });
-  } catch (err) { return toErrorResponse(err); }
+    auth = await requireAuth(request, { roles: SUBJECT_READ_ROLES, pageKey: "subjects", rateLimit: "read" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
-    const { id } = await context.params;
-    const data = await getSubjectAssessmentsData(id);
+    const id = requireSubjectId((await context.params).id);
+    const { schoolId } = auth;
+    const data = await cached(
+      schoolId,
+      SUBJECT_CACHE_ENTITY,
+      SUBJECT_ASSESSMENTS_TTL_SECONDS,
+      () => getSubjectAssessmentsData(id, schoolId),
+      `assessments:${id}`,
+    );
     return NextResponse.json({ ok: true, data });
   } catch (error) {
-    console.error("subject assessments route error", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }
 
+/**
+ * Body (JSON): { type, title, target_class_ids, description?, term?, total_marks_raw?,
+ * duration_minutes?, scheduled_start_at?, scheduled_end_at?, teacher_id? }.
+ * Response 201: { ok: true, data: SubjectAssessmentsPayload } (the refreshed list).
+ */
 export async function POST(request: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
-  } catch (err) { return toErrorResponse(err); }
+    auth = await requireAuth(request, {
+      roles: SUBJECT_WRITE_ROLES,
+      pageKey: "subjects",
+      rateLimit: "mutation",
+    });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
-    const { id } = await context.params;
-    const offering = await getSchoolSubjectOrThrow(id);
-    const body = (await request.json()) as AssessmentCreatePayload;
-    const title = asText(body.title);
-    const type = asText(body.type);
-    const targetClassIds = Array.isArray(body.target_class_ids)
-      ? body.target_class_ids.filter(Boolean)
-      : [];
+    const id = requireSubjectId((await context.params).id);
+    const { schoolId, userId } = auth;
+    const input = await parseJson(request, createAssessmentSchema);
+    const offering = await getSchoolSubjectOrThrow(id, schoolId);
 
-    if (!title || !type || targetClassIds.length === 0) {
-      return NextResponse.json(
-        { error: "Assessment title, type, and target classes are required." },
-        { status: 400 },
-      );
+    if (!input.title || !input.type || input.target_class_ids.length === 0) {
+      throw badRequest("Assessment title, type, and target classes are required.");
     }
 
-    const assessmentInsert = await supabaseAdmin
-      .from("assessments")
-      .insert({
-        school_id: offering.school_id,
-        school_subject_id: id,
-        type,
-        title,
-        description: asText(body.description),
-        term: asText(body.term),
-        total_marks_raw: asNumber(body.total_marks_raw),
-        duration_minutes: asNumber(body.duration_minutes),
-        scheduled_start_at: asText(body.scheduled_start_at),
-        scheduled_end_at: asText(body.scheduled_end_at),
-        status: "scheduled",
-        created_by: asText(body.created_by),
-      })
-      .select("id")
-      .single();
+    await createAssessment(offering, { ...input, title: input.title, type: input.type }, { schoolId, userId });
+    await bumpCache(schoolId, SUBJECT_CACHE_ENTITY);
 
-    if (assessmentInsert.error || !assessmentInsert.data) {
-      return NextResponse.json(
-        {
-          error:
-            assessmentInsert.error?.message ?? "Failed to create subject assessment.",
-        },
-        { status: 500 },
-      );
-    }
-
-    const schoolSubjectClasses = await supabaseAdmin
-      .from("school_subject_classes")
-      .select("id, class_id")
-      .eq("school_subject_id", id)
-      .in("class_id", targetClassIds);
-
-    if (schoolSubjectClasses.error) {
-      return NextResponse.json(
-        { error: schoolSubjectClasses.error.message },
-        { status: 500 },
-      );
-    }
-
-    const targetsInsert = await supabaseAdmin.from("assessment_targets").insert(
-      (schoolSubjectClasses.data ?? []).map((item) => ({
-        assessment_id: assessmentInsert.data.id,
-        school_subject_class_id: item.id,
-        class_id: item.class_id,
-        teacher_id: asText(body.teacher_id),
-        status: "scheduled",
-      })),
-    );
-
-    if (targetsInsert.error) {
-      return NextResponse.json({ error: targetsInsert.error.message }, { status: 500 });
-    }
-
-    const data = await getSubjectAssessmentsData(id);
+    const data = await getSubjectAssessmentsData(id, schoolId);
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (error) {
-    console.error("create subject assessment route error", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }

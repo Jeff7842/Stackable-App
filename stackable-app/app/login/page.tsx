@@ -3,14 +3,17 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { Icon } from "@iconify-icon/react";
+import AuthShell from "@/components/auth/AuthShell";
+import Checkbox from "@/components/auth/Checkbox";
+import { safeNextPath } from "@/lib/api/session";
 import { useToast } from "../../components/toast/ToastProvider";
 import { useRouter } from "next/navigation";
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// The server no longer hands the browser a userId: the OTP step is tied to a signed cookie.
 type PendingUser = {
-  userId: string;
-  schoolId: string;
-  schoolCode: string;
   firstName: string;
   email: string;
   maskedEmail: string;
@@ -97,8 +100,6 @@ const page = () => {
 const [resendAttempts, setResendAttempts] = useState(0); // successful resend count
 
 
-  const [authErrorMessage, setAuthErrorMessage] = useState("Invalid email address or password. Try again.");
-
   const [pendingUser, setPendingUser] = useState<PendingUser>(null);
 
   const [welcomeName, setWelcomeName] = useState("");
@@ -115,12 +116,31 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
   const [password, setPassword] = useState("");
 
   const [authError, setAuthError] = useState(false);
+  const [remember, setRemember] = useState(false);
+  // Per-field messages shown under the inputs (empty / malformed). Wrong credentials use the toast.
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
+  const emailInvalid = !!fieldErrors.email || authError;
+  const passwordInvalid = !!fieldErrors.password || authError;
 
-  const handleContinue = async () => {
+  const handleContinue = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (isSubmittingLogin) return;
+
+    // Nothing to send? Say so on the field itself - no request, no spinner.
+    const nextErrors: { email?: string; password?: string } = {};
+    if (!email.trim()) nextErrors.email = "Enter your email address.";
+    else if (!EMAIL_RE.test(email.trim())) nextErrors.email = "Enter a valid email address.";
+    if (!password) nextErrors.password = "Enter your password.";
+    if (nextErrors.email || nextErrors.password) {
+      setFieldErrors(nextErrors);
+      setAuthError(false);
+      return;
+    }
+
     try {
       setIsSubmittingLogin(true);
       setAuthError(false);
-      setAuthErrorMessage("Invalid email address or password. Try again.");
+      setFieldErrors({});
 
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -128,18 +148,20 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setAuthError(true);
-        setAuthErrorMessage(data?.error || "Login failed.");
+        // Red inputs + a toast with the server's real reason (bad password, inactive account, rate limit...).
+        setAuthError(res.status === 401);
+        showToast({
+          type: "error",
+          title: res.status === 401 ? "Sign in failed" : "Couldn't sign you in",
+          description: data?.error || "Login failed. Please try again.",
+        });
         return;
       }
 
       setPendingUser({
-        userId: data.userId,
-        schoolId: data.schoolId,
-        schoolCode: data.schoolCode,
         firstName: data.firstName,
         email: data.email,
         maskedEmail: data.maskedEmail,
@@ -153,8 +175,11 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
         description: `We sent a verification code to ${data.maskedEmail}.`,
       });
     } catch (error) {
-      setAuthError(true);
-      setAuthErrorMessage("Something went wrong. Please try again.");
+      showToast({
+        type: "error",
+        title: "Couldn't sign you in",
+        description: "Something went wrong. Check your connection and try again.",
+      });
     } finally {
       setIsSubmittingLogin(false);
     }
@@ -165,7 +190,7 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
 
   const otpValue = getOtp();
 
-  if (!pendingUser?.userId) {
+  if (!pendingUser) {
     showToast({
       type: "error",
       title: "Session lost",
@@ -178,8 +203,8 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
   if (otpValue.length !== 5) {
     showToast({
       type: "error",
-      title: "Please try again",
-      description: "Invalid email or password",
+      title: "Enter the full code",
+      description: "Type all 5 digits of the code we sent you.",
     });
     return;
   }
@@ -187,16 +212,14 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
   try {
     setIsSubmittingOtp(true);
 
+    // No userId: the server knows which code this is from the signed cookie set at sign-in.
     const res = await fetch("/api/auth/verify-otp", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId: pendingUser.userId,
-        otp: otpValue,
-      }),
+      body: JSON.stringify({ otp: otpValue, remember }),
     });
 
-    const data = await res.json();
+    const data = await res.json().catch(() => ({}));
 
     if (!res.ok) {
       showToast({
@@ -204,6 +227,11 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
         title: "Verification failed",
         description: data?.error || "Invalid or expired OTP.",
       });
+      // Out of attempts, or the code/session expired: back to the password step.
+      if (data?.attemptsLeft === 0 || (res.status === 401 && /sign in again/i.test(data?.error ?? ""))) {
+        setIsOtpOpen(false);
+        resetOtp();
+      }
       return;
     }
 
@@ -227,22 +255,16 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
       setShowWelcome(true);
     }, 1800);
 
-    // Step 3: Redirect
+    // Step 3: Redirect to the dashboard for this user's role (the server decides where).
+    // The proxy sends signed-out visitors here as /login?next=<page>. Honour it only if it is a safe
+    // same-origin path (open-redirect guard), and never over a forced password change.
+    const wanted = data?.user?.mustChangePassword
+      ? null
+      : safeNextPath(new URLSearchParams(window.location.search).get("next"));
+    const redirectTo: string = wanted ?? data?.redirectTo ?? "/login";
     setTimeout(() => {
-      window.open(
-        "/dashboard",
-        "_blank",
-        "noopener,noreferrer"
-      );
+      router.replace(redirectTo);
     }, 2500);
-
-    setTimeout(() => {
-      router.replace("/login");
-      setIsAuthTransitioning(false);
-      setShowWelcome(false);
-    }, 4000);
-
-    console.log("OTP Submitted:", otpValue);
   } catch (error) {
     showToast({
       type: "error",
@@ -255,7 +277,7 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
 };
 
   const handleResendOtp = async () => {
-    if (!pendingUser?.userId) return;
+    if (!pendingUser) return;
 
      if (isResendingOtp || resendCooldown > 0) return;
 
@@ -274,16 +296,22 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
       const res = await fetch("/api/auth/resend-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: pendingUser.userId }),
+        body: JSON.stringify({}), // the signed cookie identifies the code
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         showToast({
           type: "error",
           title: "Resend failed",
           description: data?.error || "Could not resend OTP.",
         });
+        // The server enforces the wait; mirror it on the button.
+        if (res.status === 429 && typeof data?.retryAfter === "number") setResendCooldown(data.retryAfter);
+        if (res.status === 401) {
+          setIsOtpOpen(false);
+          resetOtp();
+        }
         return;
       }
 
@@ -317,11 +345,13 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
   const onEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEmail(e.target.value);
     if (authError) setAuthError(false);
+    if (fieldErrors.email) setFieldErrors((prev) => ({ ...prev, email: undefined }));
   };
 
   const onPasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPassword(e.target.value);
     if (authError) setAuthError(false);
+    if (fieldErrors.password) setFieldErrors((prev) => ({ ...prev, password: undefined }));
   };
 
 
@@ -408,74 +438,21 @@ const formatCooldown = (seconds: number) => {
 };
 
   return (
-    <div key={pageKey} className="min-h-screen grid grid-cols-1 md:grid-cols-2 bg-white text-black">
-      {/* LEFT SIDE – IMAGE + OVERLAY */}
-      <div className="relative hidden md:flex items-center justify-center bg-[#251a00] rounded-[12px]">
-        {/* Background image */}
-        <div className="absolute inset-0 overflow-hidden mt-10">
-          <Image
-            src="/images/student-using-stackable.png"
-            alt="Student"
-            className="absolute inset-0 w-full h-full object-cover pointer-events-none"
-            width={4500}
-            height={4500}
-          />
-        </div>
-        {/* Dark overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_top,rgba(255,255,255,0)_0%,rgba(120,90,0,0.9)_55%,rgba(120,90,0,1)_70%)] mb-80 pointer-events-none"></div>
-
-        {/* Overlay text */}
-        <div className="relative z-10 px-10 text-center text-white mb-116 w-full">
-          <h2 className="text-[86px] font-normal leading-tight font-image">
-            Built for better <br />
-            <span className="text-[#ECB938]">learning</span>
-          </h2>
-          <div className="absolute inset-0 z-10 flex items-center justify-center -translate-y-1/4 pointer-events-none">
-            <Image
-              src="/images/Eclipse.png"
-              alt=""
-              width={500}
-              height={500}
-              className="w-[62vw] max-w-[420px] min-w-[200px] h-auto"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT SIDE – FORM */}
-      <div className="flex items-center justify-center px-6">
-        <div className="w-full max-w-md">
-          {/* Logo */}
-          <div className="flex justify-center mb-8 mt-[-20px] w-full h-22">
-            <Image
-              src="/logos/stackable-symbol.webp"
-              alt="Stackable logo"
-              className="h-auto"
-              width={600}
-              height={600}
-              sizes="70vw"
-              style={{ width: "auto", height: "66" }}
-            />
-          </div>
-
+    <AuthShell key={pageKey}>
           {/* Form */}
-          <form className="space-y-6">
+          <form className="space-y-6" onSubmit={handleContinue} noValidate>
             <div className="text-center">
               <h2 className="text-[32px] font-bold font-body">Sign In</h2>
               <p className="mt-1 text-sm text-gray-500 font-Inter">
                 Sign in if you already have an account
               </p>
             </div>
-            {authError && (
-              <div className="mb-4 rounded-lg border text-center border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">
-                Invalid email address or password. Try again.
-              </div>
-            )}
             {/* Email */}
-            <div className={`space-y-1 ${authError ? "animate-shake" : ""}`}>
+            <div className={`space-y-1 ${emailInvalid ? "animate-shake" : ""}`}>
               <label
+                htmlFor="login-email"
                 className={`text-sm font-medium ${
-                  authError ? "text-red-600" : "text-black"
+                  emailInvalid ? "text-red-600" : "text-black"
                 }`}
               >
                 Email address
@@ -492,7 +469,7 @@ const formatCooldown = (seconds: number) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={`icon icon-tabler icons-tabler-outline icon-tabler-user text-gray-600 peer-invalid:text-red-500 absolute left-3 top-1/2 -translate-y-1/2 ${
-                    authError ? "text-red-500" : "text-gray-600 group-focus-within:text-[#e3af2b] duration-300"
+                    emailInvalid ? "text-red-500" : "text-gray-600 group-focus-within:text-[#e3af2b] duration-300"
                   }`}
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -500,25 +477,34 @@ const formatCooldown = (seconds: number) => {
                   <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
                 </svg>
                 <input
+                  id="login-email"
                   type="email"
+                  autoComplete="email"
                   onChange={(e) => onEmailChange(e)}
                   placeholder="stackable@example.com"
+                  aria-invalid={emailInvalid}
+                  aria-describedby={fieldErrors.email ? "login-email-error" : undefined}
                   className={`w-full rounded-lg border indent-6 border-gray-300 px-4 py-2 focus:ring-1  focus:outline-2 focus:outline-offset-2
             ${
-              authError
+              emailInvalid
                 ? "border-red-500 border-1 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
                 : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be] duration-200"
             }`}
-                  required
                 />
               </div>
+              {fieldErrors.email && (
+                <p id="login-email-error" className="text-xs text-red-600">
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             {/* Password */}
-            <div className={`space-y-1 mt-[-10px] ${authError ? "animate-shake" : ""}`}>
+            <div className={`space-y-1 mt-[-10px] ${passwordInvalid ? "animate-shake" : ""}`}>
               <label
+                htmlFor="login-password"
                 className={`text-sm font-medium ${
-                  authError ? "text-red-600" : "text-black"
+                  passwordInvalid ? "text-red-600" : "text-black"
                 }`}
               >
                 Password
@@ -535,7 +521,7 @@ const formatCooldown = (seconds: number) => {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={`icon icon-tabler icons-tabler-outline icon-tabler-lock text-gray-600  invalid:text-red-600 absolute left-3 top-1/2 -translate-y-1/2  ${
-                    authError ? "text-red-500" : "text-gray-600 group-focus-within:text-[#e3af2b] duration-300"
+                    passwordInvalid ? "text-red-500" : "text-gray-600 group-focus-within:text-[#e3af2b] duration-300"
                   }`}
                 >
                   <path stroke="none" d="M0 0h24v24H0z" fill="none" />
@@ -544,17 +530,20 @@ const formatCooldown = (seconds: number) => {
                   <path d="M8 11v-4a4 4 0 1 1 8 0v4" />
                 </svg>
                 <input
+                  id="login-password"
                   type={visible ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="••••••••••"
                   onChange={(e) => onPasswordChange(e)}
+                  aria-invalid={passwordInvalid}
+                  aria-describedby={fieldErrors.password ? "login-password-error" : undefined}
                   className={`w-full rounded-lg border border-gray-300 px-4 py-2 pr-10 indent-6
                 focus:ring-1 focus:outline-2 focus:outline-offset-2
                 ${
-                  authError
+                  passwordInvalid
                     ? "border-red-500 border-1 text-red-600 focus:ring-[#f93333] focus:outline-[#ff6565be]"
                     : "border-gray-300 focus:ring-[#f9ce33] focus:outline-[#ffe565be] duration-200"
                 }`}
-                  required
                 />
                 <button 
                 type="button"
@@ -563,15 +552,19 @@ const formatCooldown = (seconds: number) => {
                 transition cursor-pointer hover:text-[#ffcd78]">
 
                 {visible ? <EyeOpen /> : <EyeClosed />}
-                
+
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p id="login-password-error" className="text-xs text-red-600">
+                  {fieldErrors.password}
+                </p>
+              )}
             </div>
 
             {/* Submit */}
             <button
-              onClick={handleContinue}
-              type="button"
+              type="submit"
             disabled={isSubmittingLogin}
               className="w-full rounded-lg text-[18px] cursor-pointer text-center bg-[#FFF4C2] h-[45px] font-image font-medium text-black hover:bg-[#F9E38C] hover:scale-[1.02] active:text-[#7D6939] active:bg-[#ffefae] active:scale-[1.0]  transition-300 duration-300"
             >
@@ -597,30 +590,17 @@ const formatCooldown = (seconds: number) => {
   htmlFor="hr"
   className="flex flex-row items-center font-medium text-sm gap-2.5 text-gray-600"
 >
-  <input id="hr" type="checkbox" className="peer hidden cursor-pointer" />
-  <div
-    className="h-4 w-4 flex rounded-sm border border-[#f9ce33] light:bg-[#e8e8e8] dark:bg-[#ffffff] peer-checked:bg-[#ECB938] transition cursor-pointer"
-  >
-    <svg
-      fill="none"
-      viewBox="0 0 24 24"
-      className="w-5 h-5 light:stroke-[#e8e8e8] dark:stroke-[#ffffff] checked:text-[#ECB938] items-center justify-center m-auto -translate-y-1/8 cursor-pointer"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path
-        d="M4 12.6111L8.92308 17.5L20 6.5"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      ></path>
-    </svg>
-  </div>
+  <Checkbox
+    id="hr"
+    checked={remember}
+    onChange={(e) => setRemember(e.target.checked)}
+  />
   Remember me
 </label>
 </div>
 <div><p className="text-right text-sm mt-[-10px] mb-[30px] ">
               <Link
-                href="/forgot-passoword"
+                href="/forgot-password"
                 className="text-[#ECB938] hover:text-[#b49b36] font-medium hover:underline duration-200"
               >
                 Forgot password?
@@ -641,13 +621,7 @@ const formatCooldown = (seconds: number) => {
             <button
               type="button"
               className="flex w-full h-[40px] items-center cursor-pointer justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white active:bg-black active:text-[#ebebebf1]  hover:scale-[1.02] active:scale-[1.0]  transition duration-300 ">
-              <Image
-                src="https://ceuppatdypoutimqdglm.supabase.co/storage/v1/object/public/Web-Images/google.png"
-                alt="Google"
-                className="h-5 w-5"
-                width={5}
-                height={5}
-              />
+              <Icon icon="logos:google-icon" width="20" height="20" />
               <span className="text-sm font-header font-medium">
                 Sign in with Google
               </span>
@@ -664,8 +638,6 @@ const formatCooldown = (seconds: number) => {
               </Link>
             </p>
           </form>
-        </div>
-      </div>
 
       {isOtpOpen && (
         <>
@@ -733,7 +705,7 @@ const formatCooldown = (seconds: number) => {
                     Enter verification code
                   </h2>
                   <p className="mt-2 text-sm text-gray-600">
-                    Enter the 5-digit code sent to your email and phone number
+                    Enter the 5-digit code sent to your email
                   </p>
                 </div>
 
@@ -854,8 +826,8 @@ const formatCooldown = (seconds: number) => {
   </div>
 )}
 
-    </div>
+    </AuthShell>
   );
 };
 
-export default page;
+export default page;

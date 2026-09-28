@@ -1,25 +1,79 @@
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { createSupabaseClient } from '@/lib/supabase/supabase-admin';
 import { generateSessionToken, getClientIp, getUserAgent, hashToken } from '@/lib/auth-utils';
+import {
+  MAX_OTP_ATTEMPTS,
+  OTP_CHALLENGE_COOKIE,
+  hashCode,
+  readChallenge,
+  safeEqual,
+} from '@/lib/auth/otp';
+import {
+  consumeOtp,
+  createSession,
+  findUserById,
+  getOtp,
+  reserveOtpAttempt,
+} from '@/lib/repositories/auth.repo';
+import { ROLE_HOME, type Role } from '@/lib/validation/shared';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const userId = String(body?.userId ?? '');
     const otpCode = String(body?.otp ?? '').trim();
+    const remember = body?.remember === true;
 
-    if (!userId || !otpCode) {
-      return NextResponse.json({ error: 'Missing userId or otp.' }, { status: 400 });
+    if (!/^\d{5}$/.test(otpCode)) {
+      return NextResponse.json({ error: 'Enter the 5-digit code.' }, { status: 400 });
     }
 
-    const { data: user, error: userError } = await createSupabaseClient
-      .from('users')
-      .select('id, school_id, school_code, first_name, last_name, email, role, must_change_password, status')
-      .eq('id', userId)
-      .maybeSingle();
+    // The OTP row comes from the signed cookie set by /login - never from the request body.
+    const store = await cookies();
+    const otpId = readChallenge(store.get(OTP_CHALLENGE_COOKIE)?.value);
+    if (!otpId) {
+      return NextResponse.json({ error: 'Your verification session expired. Please sign in again.' }, { status: 401 });
+    }
 
-    if (userError || !user) {
+    const row = await getOtp(otpId);
+
+    if (!row || row.purpose !== 'login' || row.consumed_at || row.expires_at.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Invalid or expired OTP. Please sign in again.' }, { status: 401 });
+    }
+
+    if (row.attempts >= MAX_OTP_ATTEMPTS) {
+      return NextResponse.json({ error: 'Too many wrong codes. Please sign in again.' }, { status: 401 });
+    }
+
+    // Reserve an attempt BEFORE checking the code. The compare-and-set means parallel guesses
+    // cannot all pass: only one request wins each slot, so 5 is a hard cap.
+    if (!(await reserveOtpAttempt(row.id, row.attempts))) {
+      return NextResponse.json({ error: 'Please wait a moment and try again.' }, { status: 429 });
+    }
+
+    if (!safeEqual(hashCode('login', row.user_id, otpCode), row.otp_code)) {
+      const attemptsLeft = MAX_OTP_ATTEMPTS - (row.attempts + 1);
+      if (attemptsLeft <= 0) await consumeOtp(row.id);
+      return NextResponse.json(
+        {
+          error:
+            attemptsLeft > 0
+              ? `That code isn't right. ${attemptsLeft} ${attemptsLeft === 1 ? 'attempt' : 'attempts'} left.`
+              : 'Too many wrong codes. Please sign in again.',
+          attemptsLeft,
+        },
+        { status: 401 },
+      );
+    }
+
+    // Single use: only one request can flip the code from live to consumed.
+    if (!(await consumeOtp(row.id))) {
+      return NextResponse.json({ error: 'Invalid or expired OTP. Please sign in again.' }, { status: 401 });
+    }
+
+    const user = await findUserById(row.user_id);
+    if (!user) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
@@ -27,66 +81,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Your account is not active yet.' }, { status: 403 });
     }
 
-    const nowIso = new Date().toISOString();
-
-    const { data: otpRow, error: otpError } = await createSupabaseClient
-      .from('user_otps')
-      .select('id, otp_code, expires_at, consumed_at')
-      .eq('user_id', user.id)
-      .eq('school_code', user.school_code)
-      .eq('otp_code', otpCode)
-      .is('consumed_at', null)
-      .gt('expires_at', nowIso)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (otpError) {
-      return NextResponse.json({ error: 'Failed to verify OTP.' }, { status: 500 });
-    }
-
-    if (!otpRow) {
-      return NextResponse.json({ error: 'Invalid or expired OTP.' }, { status: 401 });
-    }
-
-    const consumedAt = new Date().toISOString();
-
-    const { error: consumeError } = await createSupabaseClient
-      .from('user_otps')
-      .update({ consumed_at: consumedAt })
-      .eq('id', otpRow.id)
-      .is('consumed_at', null);
-
-    if (consumeError) {
-      return NextResponse.json({ error: 'Failed to consume OTP.' }, { status: 500 });
-    }
-
     const rawSessionToken = generateSessionToken();
-    const refreshTokenHash = hashToken(rawSessionToken);
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    // Remember me: 30-day persistent cookie. Otherwise a browser-session cookie, capped at 24h server-side.
+    const expiresAt = new Date(Date.now() + (remember ? 30 * DAY_MS : DAY_MS));
 
-    const { error: sessionError } = await createSupabaseClient.from('user_sessions').insert({
-      user_id: user.id,
-      school_id: user.school_id,
-      session_type: 'web',
-      refresh_token_hash: refreshTokenHash,
-      ip_address: getClientIp(req),
-      user_agent: getUserAgent(req),
-      expires_at: expiresAt,
+    await createSession({
+      userId: user.id,
+      schoolId: user.school_id,
+      tokenHash: hashToken(rawSessionToken),
+      expiresAt,
+      ip: getClientIp(req),
+      userAgent: getUserAgent(req),
     });
 
-    if (sessionError) {
-      return NextResponse.json({ error: 'OTP valid, but failed to create session.' }, { status: 500 });
-    }
-
-    const cookieStore = await cookies();
-    cookieStore.set('stackable_session', rawSessionToken, {
+    store.set('stackable_session', rawSessionToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',
-      expires: new Date(expiresAt),
+      ...(remember ? { expires: expiresAt } : {}),
     });
+    store.delete({ name: OTP_CHALLENGE_COOKIE, path: '/api/auth' });
+
+    // First-login / admin-forced password change goes through the same reset flow.
+    const redirectTo = user.must_change_password
+      ? `/forgot-password?reason=change&email=${encodeURIComponent(user.email ?? '')}`
+      : ROLE_HOME[user.role as Role] ?? '/login';
 
     return NextResponse.json({
       ok: true,
@@ -98,9 +118,9 @@ export async function POST(req: Request) {
         lastName: user.last_name,
         email: user.email,
         role: user.role,
-        mustChangePassword: !!user.must_change_password,
+        mustChangePassword: user.must_change_password,
       },
-      redirectTo: user.must_change_password ? '/change-password' : '/dashboard',
+      redirectTo,
     });
   } catch (error) {
     console.error('verify otp route error', error);

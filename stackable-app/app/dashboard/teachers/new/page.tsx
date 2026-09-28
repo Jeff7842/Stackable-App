@@ -1,559 +1,265 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+/**
+ * Add teacher (/dashboard/teachers/new) - create a teacher profile, assign
+ * one class and one subject, and upload the photo through the backend to the
+ * private teachers_profile bucket.
+ *
+ * This page already posted to the API with `fetch` (never imported Supabase
+ * directly, so it was not one of the six pages this pass had to migrate) but
+ * was still on the old hex/lucide-react design - it is redesigned here onto
+ * the shared design system and useTeacherFormOptions() / useCreateTeacher()
+ * (hooks/useTeachers.ts) to match the rest of the workspace.
+ */
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
-import {
-  ArrowLeft,
-  BookOpen,
-  Building2,
-  CheckCircle2,
-  GraduationCap,
-  IdCard,
-  ImagePlus,
-  Mail,
-  Phone,
-  Save,
-  UserSquare2,
-} from "lucide-react";
-import { formatClassLabel } from "@/lib/teachers";
+import { useToast } from "@/components/toast/ToastProvider";
+import { Button, EmptyState, Field, Input, Select, Skeleton } from "@/components/ui";
+import { useCreateTeacher, useTeacherFormOptions } from "@/hooks/useTeachers";
+import { classLabel } from "@/components/admin/teachers/utils";
 
-type SchoolOption = {
-  id: string;
+type FormState = {
   name: string;
-};
-
-type ClassOption = {
-  id: string;
+  admission_number: string;
+  email: string;
+  phone: string;
   school_id: string;
-  class_name: string;
-  stream: string | null;
-  class_teacher_id: string | null;
+  class_id: string;
+  subject_id: string;
 };
 
-type SubjectOption = {
-  id: number;
-  subject_name: string;
-};
-
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
-}
-
-function FieldLabel({
-  icon: Icon,
-  label,
-  helper,
-}: {
-  icon: LucideIcon;
-  label: string;
-  helper?: string;
-}) {
-  return (
-    <div className="mb-2">
-      <label className="flex items-center gap-2 text-sm font-semibold text-gray-800">
-        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-[#F7F9E2] text-[#007146]">
-          <Icon className="h-4 w-4" />
-        </span>
-        <span>{label}</span>
-      </label>
-      {helper ? <p className="mt-1 text-xs text-gray-500">{helper}</p> : null}
-    </div>
-  );
-}
-
-function InputShell({
-  children,
-  invalid,
-}: {
-  children: React.ReactNode;
-  invalid?: boolean;
-}) {
-  return (
-    <div
-      className={cn(
-        "rounded-[18px] border bg-white px-4 py-3 shadow-sm transition",
-        invalid ? "border-red-200" : "border-gray-200",
-      )}
-    >
-      {children}
-    </div>
-  );
-}
+const EMPTY: FormState = { name: "", admission_number: "", email: "", phone: "", school_id: "", class_id: "", subject_id: "" };
 
 export default function NewTeacherPage() {
   const router = useRouter();
+  const { showToast } = useToast();
+  const options = useTeacherFormOptions();
+  const create = useCreateTeacher();
 
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [form, setForm] = useState<FormState>(EMPTY);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [touched, setTouched] = useState(false);
 
-  const [schools, setSchools] = useState<SchoolOption[]>([]);
-  const [classes, setClasses] = useState<ClassOption[]>([]);
-  const [subjects, setSubjects] = useState<SubjectOption[]>([]);
+  const schools = options.data?.schools ?? [];
+  const classes = options.data?.classes ?? [];
+  const subjects = options.data?.subjects ?? [];
+  const filteredClasses = classes.filter((c) => !form.school_id || c.school_id === form.school_id);
 
-  const [form, setForm] = useState({
-    name: "",
-    admission_number: "",
-    email: "",
-    phone: "",
-    school_id: "",
-    class_id: "",
-    subject_id: "",
-  });
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState("");
-
-  useEffect(() => {
-    async function fetchOptions() {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/teachers/form-options", {
-          cache: "no-store",
-        });
-        const payload = (await res.json()) as {
-          error?: string;
-          data?: {
-            schools: SchoolOption[];
-            classes: ClassOption[];
-            subjects: SubjectOption[];
-          };
-        };
-
-        if (!res.ok || !payload.data) {
-          throw new Error(payload.error || "Failed to load teacher form options.");
-        }
-
-        setSchools(payload.data.schools);
-        setClasses(payload.data.classes);
-        setSubjects(payload.data.subjects);
-      } catch (fetchError) {
-        console.error(fetchError);
-        setError(
-          fetchError instanceof Error
-            ? fetchError.message
-            : "Failed to load teacher form options.",
-        );
-      } finally {
-        setLoading(false);
+  function patch(change: Partial<FormState>) {
+    setForm((f) => {
+      const next = { ...f, ...change };
+      // Reset the class when it stops belonging to the chosen school.
+      if (change.school_id !== undefined && next.class_id && !classes.some((c) => c.id === next.class_id && c.school_id === next.school_id)) {
+        next.class_id = "";
       }
-    }
+      return next;
+    });
+  }
 
-    void fetchOptions();
-  }, []);
-
-  useEffect(() => {
-    if (!photoFile) {
-      setPhotoPreview("");
-      return;
-    }
-
-    const objectUrl = URL.createObjectURL(photoFile);
-    setPhotoPreview(objectUrl);
-
-    return () => {
-      URL.revokeObjectURL(objectUrl);
-    };
-  }, [photoFile]);
-
-  const filteredClasses = classes.filter(
-    (classItem) => !form.school_id || classItem.school_id === form.school_id,
-  );
-
-  useEffect(() => {
-    if (!form.class_id) return;
-
-    const stillAvailable = filteredClasses.some(
-      (classItem) => classItem.id === form.class_id,
-    );
-
-    if (!stillAvailable) {
-      setForm((current) => ({ ...current, class_id: "" }));
-    }
-  }, [filteredClasses, form.class_id]);
-
-  function updateForm(field: keyof typeof form, value: string) {
-    setForm((current) => ({ ...current, [field]: value }));
+  function handlePhotoFile(file: File) {
+    setPhoto(file);
+    setPhotoPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setError("");
-    setSubmitting(true);
+    setTouched(true);
+    if (!photo || !form.name || !form.admission_number || !form.email || !form.phone || !form.class_id || !form.subject_id) {
+      showToast({ type: "error", title: "Missing details", description: "Fill in every field and choose a photo before creating the teacher." });
+      return;
+    }
 
     try {
-      if (!photoFile) {
-        throw new Error("Teacher photo is required.");
-      }
-
-      const payload = new FormData();
-      payload.set("name", form.name);
-      payload.set("admission_number", form.admission_number);
-      payload.set("email", form.email);
-      payload.set("phone", form.phone);
-      payload.set("school_id", form.school_id);
-      payload.set("class_id", form.class_id);
-      payload.set("subject_id", form.subject_id);
-      payload.set("photo", photoFile);
-
-      const res = await fetch("/api/teachers", {
-        method: "POST",
-        body: payload,
+      const result = await create.mutateAsync({
+        name: form.name,
+        email: form.email,
+        phone: form.phone,
+        admission_number: form.admission_number,
+        class_id: form.class_id,
+        subject_id: Number(form.subject_id),
+        photo,
       });
-
-      const response = (await res.json()) as {
-        error?: string;
-        data?: { id: string };
-      };
-
-      if (!res.ok || !response.data) {
-        throw new Error(response.error || "Failed to create teacher.");
-      }
-
-      router.push(`/dashboard/teachers/${response.data.id}`);
-    } catch (submitError) {
-      console.error(submitError);
-      setError(
-        submitError instanceof Error
-          ? submitError.message
-          : "Failed to create teacher.",
-      );
-    } finally {
-      setSubmitting(false);
+      showToast({ type: "success", title: "Teacher created", description: `${result.teacher.name} was added successfully.` });
+      router.push(`/dashboard/teachers/${result.id}`);
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "Create teacher failed",
+        description: error instanceof Error && error.message ? error.message : "Failed to create teacher.",
+      });
     }
   }
 
-  return (
-    <div className="min-h-screen w-full bg-transparent p-6">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <Link
-            href="/dashboard/teachers"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[#007146] transition hover:text-[#F19F24]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to teachers
-          </Link>
-          <h1 className="mt-2 text-[28px] font-bold tracking-tight text-gray-900">
-            Add Teacher
-          </h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Create a new teacher profile, assign one class, choose the teaching
-            subject, and upload the photo through the server to the private
-            teachers bucket.
-          </p>
-        </div>
+  if (options.isLoading) {
+    return (
+      <div className="space-y-5 pb-6">
+        <Skeleton className="h-96" rounded="2xl" />
+      </div>
+    );
+  }
 
-        <div className="rounded-[18px] border border-[#dbe8cc] bg-[#F7F9E2] px-4 py-3 text-sm text-[#007146] shadow-sm">
-          Teacher photos are stored in <span className="font-semibold">teachers_profile</span>{" "}
-          and served by the backend only.
-        </div>
+  if (options.isError) {
+    return (
+      <div className="rounded-2xl bg-surface shadow-soft ring-1 ring-ghost">
+        <EmptyState
+          icon="solar:danger-triangle-linear"
+          title="Could not load the teacher form"
+          description={options.error instanceof Error ? options.error.message : "Failed to load teacher form options."}
+          action={
+            <Button variant="secondary" leftIcon="solar:refresh-linear" onClick={() => void options.refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5 pb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-up">
+        <Button as="a" href="/dashboard/teachers" variant="ghost" size="sm" leftIcon="solar:arrow-left-linear">
+          Back to teachers
+        </Button>
+        <p className="rounded-xl bg-primary-tint px-4 py-2.5 text-sm text-primary-ink">
+          Photos are stored in the private <span className="font-semibold">teachers_profile</span> bucket, served by the backend only.
+        </p>
       </div>
 
-      {error ? (
-        <div className="mb-5 rounded-[20px] border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      ) : null}
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <section className="space-y-5 rounded-2xl bg-surface p-6 shadow-soft ring-1 ring-ghost">
+          <h2 className="font-display text-lg font-semibold text-ink">Teacher details</h2>
 
-      {loading ? (
-        <div className="rounded-[28px] border border-gray-100 bg-white px-6 py-16 text-center shadow-sm">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-[#F19F24]" />
-          <p className="mt-4 text-sm text-gray-500">Loading teacher form...</p>
-        </div>
-      ) : (
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#F7F9E2] text-[#007146]">
-                <UserSquare2 className="h-5 w-5" />
-              </span>
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Teacher Details</h2>
-                <p className="text-sm text-gray-500">
-                  Enter the teacher&apos;s basic information first, then link the
-                  subject and class.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <FieldLabel
-                  icon={ImagePlus}
-                  label="Teacher Photo"
-                  helper="This upload goes to the private teachers_profile bucket through the backend."
-                />
-                <InputShell invalid={!photoFile && submitting}>
-                  <div className="flex flex-col gap-4 md:flex-row md:items-center">
-                    <label className="inline-flex cursor-pointer items-center justify-center rounded-[16px] bg-[#F19F24] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#d88915]">
-                      Choose Photo
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) =>
-                          setPhotoFile(event.target.files?.[0] ?? null)
-                        }
-                      />
-                    </label>
-
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-2xl bg-[#F7F9E2] text-[#007146]">
-                        {photoPreview ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={photoPreview}
-                            alt="Teacher preview"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <ImagePlus className="h-7 w-7" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">
-                          {photoFile?.name || "No photo selected yet"}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          JPG, PNG, WEBP or any supported image up to 5MB.
-                        </p>
-                      </div>
-                    </div>
+          <div>
+            <Field label="Teacher photo" required error={touched && !photo ? "A teacher photo is required." : undefined}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-[translate] duration-300 ease-standard hover:-translate-y-0.5">
+                  Choose photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handlePhotoFile(file);
+                    }}
+                  />
+                </label>
+                <div className="flex items-center gap-3">
+                  <div className="flex size-16 items-center justify-center overflow-hidden rounded-xl bg-recessed text-ink-soft">
+                    {photoPreview ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={photoPreview} alt="Teacher preview" className="size-full object-cover" />
+                    ) : (
+                      "No photo"
+                    )}
                   </div>
-                </InputShell>
-              </div>
-
-              <div>
-                <FieldLabel icon={UserSquare2} label="Teacher Name" />
-                <InputShell invalid={!form.name && submitting}>
-                  <input
-                    value={form.name}
-                    onChange={(event) => updateForm("name", event.target.value)}
-                    placeholder="Enter full teacher name"
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                  />
-                </InputShell>
-              </div>
-
-              <div>
-                <FieldLabel icon={IdCard} label="Teacher ID" helper="Saved in the teacher admission/ID field." />
-                <InputShell invalid={!form.admission_number && submitting}>
-                  <input
-                    value={form.admission_number}
-                    onChange={(event) =>
-                      updateForm("admission_number", event.target.value)
-                    }
-                    placeholder="Enter teacher ID"
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                  />
-                </InputShell>
-              </div>
-
-              <div>
-                <FieldLabel icon={Mail} label="Email Address" />
-                <InputShell invalid={!form.email && submitting}>
-                  <input
-                    type="email"
-                    value={form.email}
-                    onChange={(event) => updateForm("email", event.target.value)}
-                    placeholder="teacher@school.com"
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                  />
-                </InputShell>
-              </div>
-
-              <div>
-                <FieldLabel icon={Phone} label="Phone Number" />
-                <InputShell invalid={!form.phone && submitting}>
-                  <input
-                    value={form.phone}
-                    onChange={(event) => updateForm("phone", event.target.value)}
-                    placeholder="Enter phone number"
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                  />
-                </InputShell>
-              </div>
-
-              <div>
-                <FieldLabel icon={Building2} label="School" />
-                <InputShell invalid={!form.school_id && submitting}>
-                  <select
-                    value={form.school_id}
-                    onChange={(event) => updateForm("school_id", event.target.value)}
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                  >
-                    <option value="">Select school</option>
-                    {schools.map((school) => (
-                      <option key={school.id} value={school.id}>
-                        {school.name}
-                      </option>
-                    ))}
-                  </select>
-                </InputShell>
-              </div>
-
-              <div>
-                <FieldLabel
-                  icon={GraduationCap}
-                  label="Assigned Class"
-                  helper="Only free classes can be assigned to a new teacher here."
-                />
-                <InputShell invalid={!form.class_id && submitting}>
-                  <select
-                    value={form.class_id}
-                    onChange={(event) => updateForm("class_id", event.target.value)}
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                    disabled={!form.school_id}
-                  >
-                    <option value="">
-                      {form.school_id ? "Select class" : "Choose school first"}
-                    </option>
-                    {filteredClasses.map((classItem) => (
-                      <option
-                        key={classItem.id}
-                        value={classItem.id}
-                        disabled={Boolean(classItem.class_teacher_id)}
-                      >
-                        {formatClassLabel(classItem)}
-                        {classItem.class_teacher_id ? " - unavailable" : ""}
-                      </option>
-                    ))}
-                  </select>
-                </InputShell>
-              </div>
-
-              <div className="md:col-span-2">
-                <FieldLabel icon={BookOpen} label="Teaching Subject" />
-                <InputShell invalid={!form.subject_id && submitting}>
-                  <select
-                    value={form.subject_id}
-                    onChange={(event) => updateForm("subject_id", event.target.value)}
-                    className="w-full bg-transparent text-sm text-gray-700 outline-none"
-                  >
-                    <option value="">Select subject</option>
-                    {subjects.map((subject) => (
-                      <option key={subject.id} value={String(subject.id)}>
-                        {subject.subject_name}
-                      </option>
-                    ))}
-                  </select>
-                </InputShell>
-              </div>
-            </div>
-
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-2 rounded-[16px] bg-[#F19F24] px-5 py-3 text-sm font-semibold text-white shadow-md transition hover:translate-y-[-1px] hover:bg-[#d88915] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                <Save className="h-4 w-4" />
-                {submitting ? "Creating Teacher..." : "Create Teacher"}
-              </button>
-
-              <Link
-                href="/dashboard/teachers"
-                className="inline-flex items-center gap-2 rounded-[16px] border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:border-[#F19F24] hover:text-[#F19F24]"
-              >
-                Cancel
-              </Link>
-            </div>
-          </div>
-
-          <div className="space-y-6">
-            <div className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm">
-              <div className="mb-5 flex items-center gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FFF4E2] text-[#F19F24]">
-                  <CheckCircle2 className="h-5 w-5" />
-                </span>
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Creation Summary</h2>
-                  <p className="text-sm text-gray-500">
-                    This is the teacher profile that will be created when you submit.
-                  </p>
+                  <p className="text-sm text-ink-soft">{photo?.name || "JPG, PNG or WEBP, up to 5MB."}</p>
                 </div>
               </div>
+            </Field>
+          </div>
 
-              <div className="space-y-4">
-                {[
-                  {
-                    icon: UserSquare2,
-                    label: "Teacher",
-                    value: form.name || "Waiting for teacher name",
-                  },
-                  {
-                    icon: IdCard,
-                    label: "Teacher ID",
-                    value: form.admission_number || "Waiting for teacher ID",
-                  },
-                  {
-                    icon: Building2,
-                    label: "School",
-                    value:
-                      schools.find((school) => school.id === form.school_id)?.name ||
-                      "Waiting for school selection",
-                  },
-                  {
-                    icon: GraduationCap,
-                    label: "Assigned Class",
-                    value:
-                      formatClassLabel(
-                        classes.find((classItem) => classItem.id === form.class_id),
-                      ) || "Waiting for class selection",
-                  },
-                  {
-                    icon: BookOpen,
-                    label: "Subject",
-                    value:
-                      subjects.find(
-                        (subject) => String(subject.id) === form.subject_id,
-                      )?.subject_name || "Waiting for subject selection",
-                  },
-                ].map((item) => (
-                  <div
-                    key={item.label}
-                    className="rounded-[20px] border border-gray-100 bg-[#FCFCFC] p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#F7F9E2] text-[#007146]">
-                        <item.icon className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-xs uppercase tracking-wide text-gray-400">
-                          {item.label}
-                        </p>
-                        <p className="mt-1 text-sm font-semibold text-gray-900">
-                          {item.value}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Teacher name" required error={touched && !form.name ? "Required." : undefined}>
+              <Input value={form.name} onChange={(e) => patch({ name: e.target.value })} placeholder="Enter full teacher name" />
+            </Field>
+            <Field label="Teacher ID" required error={touched && !form.admission_number ? "Required." : undefined}>
+              <Input value={form.admission_number} onChange={(e) => patch({ admission_number: e.target.value })} placeholder="Enter teacher ID" />
+            </Field>
+            <Field label="Email address" required error={touched && !form.email ? "Required." : undefined}>
+              <Input type="email" value={form.email} onChange={(e) => patch({ email: e.target.value })} placeholder="teacher@school.com" />
+            </Field>
+            <Field label="Phone number" required error={touched && !form.phone ? "Required." : undefined}>
+              <Input value={form.phone} onChange={(e) => patch({ phone: e.target.value })} placeholder="Enter phone number" />
+            </Field>
+            <Field label="School" required>
+              <Select value={form.school_id} onChange={(e) => patch({ school_id: e.target.value })}>
+                <option value="">Select school</option>
+                {schools.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
                 ))}
-              </div>
-            </div>
-
-            <div className="rounded-[28px] border border-[#dbe8cc] bg-[#F7F9E2] p-6 shadow-sm">
-              <div className="flex items-start gap-3">
-                <span className="inline-flex h-11 w-11 items-center justify-center rounded-2xl bg-white text-[#007146]">
-                  <Building2 className="h-5 w-5" />
-                </span>
-                <div>
-                  <h3 className="text-base font-semibold text-[#0F5132]">
-                    Backend-first teacher creation
-                  </h3>
-                  <p className="mt-2 text-sm leading-6 text-[#2F5E46]">
-                    The form submits to the teacher API, uploads the image to the
-                    private bucket on the server, creates the teacher record, assigns
-                    the class, and links the subject in one backend flow.
-                  </p>
-                </div>
-              </div>
-            </div>
+              </Select>
+            </Field>
+            <Field
+              label="Assigned class"
+              required
+              hint="Only classes without a class teacher can be assigned here."
+              error={touched && !form.class_id ? "Required." : undefined}
+            >
+              <Select value={form.class_id} disabled={!form.school_id} onChange={(e) => patch({ class_id: e.target.value })}>
+                <option value="">{form.school_id ? "Select class" : "Choose school first"}</option>
+                {filteredClasses.map((c) => (
+                  <option key={c.id} value={c.id} disabled={Boolean(c.class_teacher_id)}>
+                    {classLabel(c)}
+                    {c.class_teacher_id ? " - unavailable" : ""}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <Field label="Teaching subject" required error={touched && !form.subject_id ? "Required." : undefined} className="sm:col-span-2">
+              <Select value={form.subject_id} onChange={(e) => patch({ subject_id: e.target.value })}>
+                <option value="">Select subject</option>
+                {subjects.map((s) => (
+                  <option key={s.id} value={String(s.id)}>
+                    {s.subject_name}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
-        </form>
-      )}
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button type="submit" loading={create.isPending} leftIcon="solar:diskette-linear">
+              {create.isPending ? "Creating teacher" : "Create teacher"}
+            </Button>
+            <Button as="a" href="/dashboard/teachers" variant="ghost">
+              Cancel
+            </Button>
+          </div>
+        </section>
+
+        <aside className="space-y-5">
+          <section className="rounded-2xl bg-surface p-6 shadow-soft ring-1 ring-ghost">
+            <h2 className="font-display text-lg font-semibold text-ink">Creation summary</h2>
+            <p className="mt-1 text-sm text-ink-soft">This is the teacher profile that will be created on submit.</p>
+            <dl className="mt-4 space-y-3">
+              {[
+                { label: "Teacher", value: form.name || "Waiting for teacher name" },
+                { label: "Teacher ID", value: form.admission_number || "Waiting for teacher ID" },
+                { label: "School", value: schools.find((s) => s.id === form.school_id)?.name || "Waiting for school selection" },
+                {
+                  label: "Assigned class",
+                  value: (() => {
+                    const selected = classes.find((c) => c.id === form.class_id);
+                    return selected ? classLabel(selected) : "Waiting for class selection";
+                  })(),
+                },
+                { label: "Subject", value: subjects.find((s) => String(s.id) === form.subject_id)?.subject_name || "Waiting for subject selection" },
+              ].map((item) => (
+                <div key={item.label} className="rounded-xl bg-recessed p-3">
+                  <dt className="text-[11px] font-semibold tracking-wider text-muted uppercase">{item.label}</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-ink">{item.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <section className="rounded-2xl bg-primary-tint p-6">
+            <h3 className="font-display text-base font-semibold text-primary-ink">Backend-first teacher creation</h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+              The form submits to the teacher API, uploads the image to the private bucket on the server, creates the teacher record,
+              assigns the class and links the subject - all in one backend transaction.
+            </p>
+          </section>
+        </aside>
+      </form>
     </div>
   );
 }

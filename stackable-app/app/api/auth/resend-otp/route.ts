@@ -1,27 +1,59 @@
+import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { Resend } from 'resend';
-import { createSupabaseClient } from '@/lib/supabase/supabase-admin';
-import { generateOtp, getClientIp, getUserAgent, maskEmail } from '@/lib/auth-utils';
-import OtpEmail from '@/components/email/otp-email';
-
-const resend = new Resend(process.env.RESEND_API_KEY);
+import { generateOtp, getClientIp, getUserAgent, maskEmail, resolveSmsPhone } from '@/lib/auth-utils';
+import { enqueueJob } from '@/lib/qeue/jobs';
+import {
+  MAX_OTP_ATTEMPTS,
+  MAX_OTP_SENDS,
+  MIN_RESEND_GAP_MS,
+  OTP_CHALLENGE_COOKIE,
+  OTP_TTL_MS,
+  challengeCookieOptions,
+  hashCode,
+  readChallenge,
+  signChallenge,
+} from '@/lib/auth/otp';
+import { countLoginOtpsSince, findUserById, getOtp, issueLoginOtp } from '@/lib/repositories/auth.repo';
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const userId = String(body?.userId ?? '');
-
-    if (!userId) {
-      return NextResponse.json({ error: 'Missing userId.' }, { status: 400 });
+    // Which code is being resent comes from the signed cookie set by /login, not from the body.
+    const store = await cookies();
+    const otpId = readChallenge(store.get(OTP_CHALLENGE_COOKIE)?.value);
+    if (!otpId) {
+      return NextResponse.json({ error: 'Your verification session expired. Please sign in again.' }, { status: 401 });
     }
 
-    const { data: user, error } = await createSupabaseClient
-      .from('users')
-      .select('id, email, school_code, first_name, status')
-      .eq('id', userId)
-      .maybeSingle();
+    const current = await getOtp(otpId);
 
-    if (error || !user) {
+    if (!current || current.purpose !== 'login' || current.consumed_at || current.expires_at.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Your verification session expired. Please sign in again.' }, { status: 401 });
+    }
+
+    if (current.attempts >= MAX_OTP_ATTEMPTS) {
+      return NextResponse.json({ error: 'Too many wrong codes. Please sign in again.' }, { status: 401 });
+    }
+
+    // Server-side throttle (the page's cooldown is only cosmetic).
+    const sinceLast = Date.now() - current.created_at.getTime();
+    if (sinceLast < MIN_RESEND_GAP_MS) {
+      const retryAfter = Math.ceil((MIN_RESEND_GAP_MS - sinceLast) / 1000);
+      return NextResponse.json(
+        { error: `Please wait ${retryAfter}s before requesting another code.`, retryAfter },
+        { status: 429 },
+      );
+    }
+
+    const recentSends = await countLoginOtpsSince(current.user_id, new Date(Date.now() - OTP_TTL_MS));
+    if (recentSends >= MAX_OTP_SENDS) {
+      return NextResponse.json(
+        { error: 'Too many verification codes requested. Please sign in again in a few minutes.' },
+        { status: 429 },
+      );
+    }
+
+    const user = await findUserById(current.user_id);
+    if (!user || !user.email) {
       return NextResponse.json({ error: 'User not found.' }, { status: 404 });
     }
 
@@ -29,50 +61,31 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Your account is not active yet.' }, { status: 403 });
     }
 
-    await createSupabaseClient
-      .from('user_otps')
-      .update({ consumed_at: new Date().toISOString() })
-      .eq('user_id', user.id)
-      .eq('school_code', user.school_code)
-      .is('consumed_at', null);
-
     const otpCode = generateOtp(5);
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
-    const { error: otpInsertError } = await createSupabaseClient.from('user_otps').insert({
-      user_id: user.id,
-      school_code: user.school_code,
-      otp_code: otpCode,
-      channel: 'email',
-      expires_at: expiresAt,
-      ip_address: getClientIp(req),
-      user_agent: getUserAgent(req),
+    const otpRow = await issueLoginOtp({
+      userId: user.id,
+      schoolCode: user.school_code,
+      codeHash: hashCode('login', user.id, otpCode),
+      expiresAt: new Date(Date.now() + OTP_TTL_MS),
+      ip: getClientIp(req),
+      userAgent: getUserAgent(req),
     });
 
-    if (otpInsertError) {
-      return NextResponse.json({ error: 'Failed to create OTP.' }, { status: 500 });
-    }
-
-    const fromEmail = process.env.RESEND_FROM_EMAIL;
-    if (!fromEmail) {
-      return NextResponse.json({ error: 'Missing Credentials.' }, { status: 500 });
-    }
-
-    const { error: sendError } = await resend.emails.send({
-      from: fromEmail,
-      to: user.email,
-      subject: 'Your Stackable verification code',
-      react: OtpEmail({ firstName: user.first_name, otpCode }),
+    await enqueueJob('send-otp', {
+      email: user.email,
+      firstName: user.first_name,
+      otpCode,
+      purpose: 'login',
+      phone: resolveSmsPhone(user),
     });
 
-    if (sendError) {
-      return NextResponse.json({ error: 'OTP email failed to send.' }, { status: 500 });
-    }
+    store.set(OTP_CHALLENGE_COOKIE, signChallenge(otpRow.id), challengeCookieOptions());
 
     return NextResponse.json({
       ok: true,
       maskedEmail: maskEmail(user.email),
       message: 'A new OTP has been sent.',
+      retryAfter: MIN_RESEND_GAP_MS / 1000,
     });
   } catch (error) {
     console.error('resend otp route error', error);

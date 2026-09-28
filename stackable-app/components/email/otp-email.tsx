@@ -3,11 +3,14 @@ import * as React from "react";
 type OtpEmailProps = {
   otpCode: string;
   firstName: string;
+  /** "login" (default) or "reset" for the forgot-password flow */
+  purpose?: "login" | "reset";
 };
 
 
-export default function OtpEmail({ firstName,otpCode }: OtpEmailProps) {
+export default function OtpEmail({ firstName, otpCode, purpose = "login" }: OtpEmailProps) {
 
+  const isReset = purpose === "reset";
   const formattedOtp = String(otpCode).replace(/(\d{3})(?=\d)/g, "$1 ");
   return (
     
@@ -68,7 +71,7 @@ export default function OtpEmail({ firstName,otpCode }: OtpEmailProps) {
                   margin: "0 0 12px",
                 }}
               >
-                Let&apos;s log you in
+                {isReset ? "Reset your password" : "Let’s log you in"}
               </div>
 
               <div
@@ -80,8 +83,9 @@ export default function OtpEmail({ firstName,otpCode }: OtpEmailProps) {
                   color: "#4b5563",
                 }}
               >
-                Hi {firstName},kindly use the verification code below to complete your sign-up
-                securely.This code will expire in 10 minutes.
+                {isReset
+                  ? `Hi ${firstName}, use the code below to reset your Stackable password. This code will expire in 10 minutes.`
+                  : `Hi ${firstName}, kindly use the verification code below to complete your sign-up securely. This code will expire in 10 minutes.`}
               </div>
 
               <div
@@ -140,7 +144,9 @@ export default function OtpEmail({ firstName,otpCode }: OtpEmailProps) {
                   color: "#6b7280",
                 }}
               >
-                If you didn&apos;t request this email, you can safely ignore it
+                {isReset
+                  ? "If you didn’t ask to reset your password, you can safely ignore this email. Your password won’t change."
+                  : "If you didn’t request this email, you can safely ignore it"}
               </div>
 
               <table

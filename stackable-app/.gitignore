@@ -42,3 +42,6 @@ next-env.d.ts
 
 # prisma generated client (regenerated via `pnpm db:generate`)
 /lib/generated
+
+# Sentry Config File
+.env.sentry-build-plugin

@@ -18,29 +18,31 @@ export default function Toast({
   onClose,
 }: ToastProps) {
   const styles = {
+    // Colours come from the dashboard design tokens (app/globals.css), so the
+    // toast follows light / dark mode.
     error: {
-      icon: "bg-red-50 text-red-600",
-      ring: "ring-red-100",
-      accent: "bg-red-500",
-      description: "text-gray-500",
+      icon: "bg-danger-tint text-danger",
+      ring: "ring-danger-tint",
+      accent: "bg-danger",
+      description: "text-ink-soft",
     },
     success: {
-      icon: "bg-emerald-50 text-emerald-600",
-      ring: "ring-emerald-100",
-      accent: "bg-emerald-500",
-      description: "text-gray-500",
+      icon: "bg-success-tint text-success",
+      ring: "ring-success-tint",
+      accent: "bg-success",
+      description: "text-ink-soft",
     },
     info: {
-      icon: "bg-sky-50 text-sky-600",
-      ring: "ring-sky-100",
-      accent: "bg-sky-500",
-      description: "text-gray-500",
+      icon: "bg-info-tint text-info",
+      ring: "ring-info-tint",
+      accent: "bg-info",
+      description: "text-ink-soft",
     },
     warning: {
-      icon: "bg-amber-50 text-amber-600",
-      ring: "ring-amber-100",
-      accent: "bg-amber-500",
-      description: "text-gray-500",
+      icon: "bg-warning-tint text-warning",
+      ring: "ring-warning-tint",
+      accent: "bg-warning",
+      description: "text-ink-soft",
     },
   };
 
@@ -122,7 +124,7 @@ export default function Toast({
   return (
     <div className="pointer-events-auto w-full text-left">
       <div
-        className="relative overflow-hidden rounded-[22px] border border-gray-200 bg-white px-4 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
+        className="relative overflow-hidden rounded-2xl bg-surface px-4 py-4 shadow-pop ring-1 ring-ghost"
       >
         <div className={`absolute inset-y-0 left-0 w-1 ${styles[type].accent}`} />
 
@@ -135,7 +137,7 @@ export default function Toast({
             </div>
 
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900">{title}</p>
+              <p className="text-sm font-semibold text-ink">{title}</p>
               {description ? (
                 <p className={`mt-1 text-sm leading-5 ${styles[type].description}`}>
                   {description}
@@ -146,7 +148,7 @@ export default function Toast({
 
           <button
             onClick={() => onClose(id)}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition-colors duration-300 ease-standard hover:bg-recessed hover:text-ink focus-visible:outline-2 focus-visible:outline-focus"
             aria-label="Dismiss notification"
           >
             <svg

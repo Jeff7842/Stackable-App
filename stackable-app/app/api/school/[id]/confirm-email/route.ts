@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { confirmPendingSchool, findSchoolForConfirmation } from "@/lib/repositories/school-admin.repo";
 import { verifySchoolEmailConfirmationToken } from "@/lib/school-security";
 
-type Context = {
-  params: Promise<{ id: string }>;
-};
+type Context = { params: Promise<{ id: string }> };
 
 function renderHtml(title: string, message: string, success: boolean) {
   const accent = success ? "#047857" : "#dc2626";
@@ -34,93 +32,60 @@ function renderHtml(title: string, message: string, success: boolean) {
 </html>`;
 }
 
+function page(title: string, message: string, success: boolean, status: number) {
+  return new NextResponse(renderHtml(title, message, success), {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
 export async function GET(req: NextRequest, context: Context) {
   const { id } = await context.params;
   const token = req.nextUrl.searchParams.get("token") ?? "";
   const payload = verifySchoolEmailConfirmationToken(token);
 
   if (!payload || payload.schoolId !== id) {
-    return new NextResponse(
-      renderHtml(
-        "Invalid confirmation link",
-        "This school confirmation link is invalid or expired. Ask an administrator to create the school again or resend confirmation.",
-        false,
-      ),
-      {
-        status: 400,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      },
+    return page(
+      "Invalid confirmation link",
+      "This school confirmation link is invalid or expired. Ask an administrator to create the school again or resend confirmation.",
+      false,
+      400,
     );
   }
 
-  const { data: school, error } = await supabaseAdmin
-    .from("schools")
-    .select("id, name, email, status")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error || !school) {
-    return new NextResponse(
-      renderHtml(
-        "School not found",
-        "We could not find this school record anymore. Please contact your Stackable administrator.",
-        false,
-      ),
-      {
-        status: 404,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      },
+  const school = await findSchoolForConfirmation(id);
+  if (!school) {
+    return page(
+      "School not found",
+      "We could not find this school record anymore. Please contact your Stackable administrator.",
+      false,
+      404,
     );
   }
 
   if ((school.email ?? "").toLowerCase() !== payload.email.toLowerCase()) {
-    return new NextResponse(
-      renderHtml(
-        "Email mismatch",
-        "This confirmation link no longer matches the current school email address.",
-        false,
-      ),
-      {
-        status: 400,
-        headers: { "Content-Type": "text/html; charset=utf-8" },
-      },
+    return page(
+      "Email mismatch",
+      "This confirmation link no longer matches the current school email address.",
+      false,
+      400,
     );
   }
 
-  if (school.status !== "active") {
-    const { error: updateError } = await supabaseAdmin
-      .from("schools")
-      .update({
-        status: "active",
-        pending_status_change_at: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", id);
-
-    if (updateError) {
-      return new NextResponse(
-        renderHtml(
-          "Could not confirm email",
-          "The email was valid but Stackable could not update the school status right now. Please try again later.",
-          false,
-        ),
-        {
-          status: 500,
-          headers: { "Content-Type": "text/html; charset=utf-8" },
-        },
-      );
-    }
+  const outcome = await confirmPendingSchool(id);
+  if (outcome === "blocked") {
+    return page(
+      "Could not confirm email",
+      "This school is suspended, so an old confirmation link can no longer activate it. Please contact your Stackable administrator.",
+      false,
+      409,
+    );
   }
 
-  return new NextResponse(
-    renderHtml(
-      "School email confirmed",
-      `${school.name} is now confirmed and can move forward as an active school in Stackable.`,
-      true,
-    ),
-    {
-      status: 200,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
-    },
+  return page(
+    "School email confirmed",
+    `${school.name} is now confirmed and can move forward as an active school in Stackable.`,
+    true,
+    200,
   );
 }

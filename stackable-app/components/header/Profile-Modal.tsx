@@ -1,138 +1,198 @@
-'use client';
+"use client";
 
-import { useEffect, useRef } from 'react';
-import Image from 'next/image';
+// =============================================================================
+// ProfileModal - "who am I signed in as" card, opened from the top-bar menu.
+// -----------------------------------------------------------------------------
+// Data: useMe() (name, role, school, email). Loading -> skeletons; failure ->
+// a short message with a Retry button (never crashes the shell).
+// Behaviour: Esc and backdrop click close it, focus is moved inside and kept
+// there (Tab wraps), and focus returns to the previous element on close.
+// It is rendered OUTSIDE the sticky header (see dashboard-navbar.tsx) because
+// the header's backdrop blur would otherwise become its positioning box.
+// =============================================================================
 
+import { useEffect, useRef } from "react";
+import { Avatar } from "@/components/ui/Avatar";
+import { Button } from "@/components/ui/Button";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/lib/cn";
+import { useMe } from "@/hooks/useMe";
+import { PORTAL_LABEL, settingsHref } from "@/lib/nav";
+import type { Portal } from "@/lib/validation/shared";
+import { PORTAL_CHIP, displayName, formatRole } from "@/components/dashboard/format";
+import { useLogout } from "@/components/dashboard/useLogout";
 
 interface ProfileModalProps {
   open: boolean;
   onClose: () => void;
+  portal: Portal;
 }
 
-const ProfileModal = ({ open, onClose }: ProfileModalProps) => {
-  const modalRef = useRef<HTMLDivElement | null>(null);
+function Row({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="text-xs font-semibold uppercase tracking-[0.1em] text-muted">{label}</dt>
+      <dd className="min-w-0 truncate text-sm font-medium text-ink">{value}</dd>
+    </div>
+  );
+}
 
-  // Close on outside click
+const ProfileModal = ({ open, onClose, portal }: ProfileModalProps) => {
+  const me = useMe();
+  const { logout, pending: loggingOut } = useLogout();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const onCloseRef = useRef(onClose);
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent): void => {
-      if (
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
-        onClose();
+    onCloseRef.current = onClose;
+  });
+
+  // Focus in, Esc to close, Tab wraps inside the card, focus restored on close.
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const nodes = cardRef.current?.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (!nodes || nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
       }
     };
 
-    if (open) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("keydown", onKey);
+      previous?.focus?.();
     };
-  }, [open, onClose]);
+  }, [open]);
+
+  const name = displayName(me.data);
+  const role = formatRole(me.data?.role, portal);
+  const settings = settingsHref(portal);
 
   return (
-    <>
-      {/* Backdrop 
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Your profile"
+      aria-hidden={!open}
+      inert={!open}
+      className={cn(
+        "fixed inset-0 z-[110] flex items-end justify-center p-4 transition-[visibility] duration-300 sm:items-center",
+        open ? "visible" : "pointer-events-none invisible",
+      )}
+    >
+      <button
+        type="button"
+        tabIndex={-1}
+        aria-label="Close profile"
+        onClick={onClose}
+        className={cn(
+          "absolute inset-0 bg-ink/40 backdrop-blur-[2px] transition-opacity duration-300 ease-standard dark:bg-canvas/70",
+          open ? "opacity-100" : "opacity-0",
+        )}
+      />
+
       <div
-        className={`fixed inset-0 z-[90] bg-black/1 transition-opacity duration-300
-        ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-      />*/}
-
-      {/* Modal */}
-      
-
-        {/* Modal content goes here */}
-        <div
-        ref={modalRef}
-          className={`fixed right-0 top-[40px]  mr-8
-          w-75 h-85 bg-white rounded-[25px] shadow-xl z-[100] overflow-hidden flex flex-col transform transition-all duration-300 ease-out ${
-          open
-            ? 'opacity-100 translate-y-0'
-            : 'opacity-0 -translate-y-6 pointer-events-none'
-        }`}>
-            {/* Close button */}
-        <button
+        ref={cardRef}
+        className={cn(
+          "relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface shadow-pop ring-1 ring-ghost",
+          "transition-[opacity,translate,scale] duration-300 ease-standard",
+          open ? "translate-y-0 scale-100 opacity-100" : "translate-y-4 scale-95 opacity-0",
+        )}
+      >
+        {/* Tone block instead of a photo cover: light and dark both work. */}
+        <div className="h-24 bg-primary-tint" />
+        <Button
+          ref={closeRef}
+          variant="ghost"
+          size="sm"
+          iconOnly
           onClick={onClose}
-          className={`absolute top-4 left-3 text-[10px] w-5 h-5 rounded-full z-110 cursor-pointer bg-white
-          flex items-center justify-center shadow-2xl
-          hover:bg-yellow-100 hover:text-gray-500 hover:scale-[1.07] hover:rotate-90 transition-all duration-200"
-          aria-label="Close modal`}>
-          ✕
-        </button>
-          {/* HEADER / COVER */}
-          <header className="relative h-1/4 w-full">
-            <Image
-              src="/images/653.jpg"
-              alt="Profile cover"
-              className={`w-full h-full object-cover  hover:scale-[1.1]
-              transition-all duration-4000`}
-              width={500}
-              height={500}/>
-        
-            {/* Avatar */}
-            <div
-              className={`absolute bottom-[-40px] left-1/2 -translate-x-1/2
-              bg-white p-1 rounded-full w-20 h-20
-              flex items-center justify-center
-              cursor-pointer hover:scale-[1.03]
-              transition-all duration-300`}
-            >
-              <Image src='/images/5739662.jpg'
-                alt="User avatar"
-                className="rounded-full w-18 h-18 object-cover hover:grayscale-70"
-                width={500}
-                height={500}
-              />
+          aria-label="Close profile"
+          leftIcon="solar:close-circle-linear"
+          className="absolute right-3 top-3"
+        />
+
+        <div className="px-6 pb-6">
+          <div className="-mt-10 flex items-end justify-between">
+            {me.isPending ? (
+              <Skeleton className="size-20 ring-4 ring-surface" rounded="full" />
+            ) : (
+              <Avatar name={name} size="xl" status="online" className="rounded-full ring-4 ring-surface" />
+            )}
+          </div>
+
+          {me.isPending ? (
+            <div className="mt-4 space-y-2" aria-busy="true">
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-24" rounded="full" />
+              <Skeleton className="mt-4 h-24 w-full" rounded="xl" />
             </div>
-          </header>
-        
-          {/* CONTENT AREA — 3/4 HEIGHT */}
-          <main className="flex-1 pt-12 px-6 flex flex-col justify-between">
-            <section className="space-y-3 text-center">
-              <h1 className="text-[22px] font-bold font-body text-black">
-                Jefferson Kimotho
-              </h1>
-        
-              <p className="text-[15px] text-gray-500 mt-[-12px]">
-                Super Admin
-              </p>
-        <p className="text-[14px] text-gray-600 mt-[-5px]"><strong>Kyfaru Academy</strong>
-              </p>
-        
-        <div className='col-span-1 gap-4 flex'>
-              <address className="not-italic text-[14px] text-gray-600">
-                contact@kyfaru.ac.ke
-              </address>
-              <p className="text-[14px] text-gray-600">ID: <strong>KYFU23296</strong>
-              </p>
-        </div>
-              <hr className="my-3" />
-        
-              {/* Attendance Report */}
-              
-            </section>
-        
-            {/* CTA */}
-            <footer className="pb-4 flex gap-4">
-              <button
-                className={`w-full py-1 text-[14px] rounded-full bg-black text-white outline-2 focus:text-[#ffffff] focus:outline-1 focus:outline-[#F19F24] focus:bg-[#F19F24]
-                hover:bg-transparent hover:text-black hover:scale-[1.01] cursor-pointer hover:outline-2 hover:outline-black hover:shadow-2xl transition-all duration-300`}>
-                View More
-              </button>
-              <button
-        className={`p-16-semibold flex size-full text-[14px] gap-2 p-2 items-center justify-center group font-semibold rounded-full bg-cover hover:bg-gray-50 hover:outline-1 hover:outline-red-600 hover:shadow-inner focus:bg-gradient-to-r from-red-400 to-red-600
-         focus:text-white text-red-700 hover:scale-[1.01] transition-all ease-linear `}>
-        <svg xmlns="http://www.w3.org/2000/svg" width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="icon icon-tabler icons-tabler-outline icon-tabler-logout group-focus:text-amber-300"><path fill="none" stroke="none" d="M0 0h24v24H0z" /><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2" /><path d="M9 12h12l-3 -3" /><path d="M18 15l3 -3" /></svg>
-        Logout
-      </button>
+          ) : me.isError ? (
+            <div className="mt-4">
+              <h2 className="font-display text-xl font-bold text-ink">
+                Your profile
+              </h2>
+              <p className="mt-2 text-sm text-danger">We could not load your details right now.</p>
+              <div className="mt-4">
+                <Button variant="secondary" size="sm" leftIcon="solar:restart-linear" onClick={() => void me.refetch()}>
+                  Retry
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h2 className="mt-4 truncate font-display text-xl font-bold text-ink">
+                {name}
+              </h2>
+              <span
+                className={cn(
+                  "mt-1.5 inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]",
+                  PORTAL_CHIP[portal],
+                )}
+              >
+                {role}
+              </span>
 
-            </footer>
-          </main>
-        </div>
+              <dl className="mt-5 space-y-3 rounded-xl bg-recessed p-4">
+                <Row label="School" value={me.data?.schoolName ?? PORTAL_LABEL[portal]} />
+                <Row label="School code" value={me.data?.schoolCode} />
+                <Row label="Email" value={me.data?.email} />
+              </dl>
+            </>
+          )}
 
-    </>
+          <div className="mt-5 flex gap-3">
+            {settings ? (
+              <Button as="a" href={settings} variant="secondary" fullWidth onClick={onClose}>
+                Settings
+              </Button>
+            ) : null}
+            <Button variant="danger" fullWidth loading={loggingOut} leftIcon="solar:logout-2-linear" onClick={() => void logout()}>
+              Log out
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

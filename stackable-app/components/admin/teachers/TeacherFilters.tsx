@@ -1,0 +1,98 @@
+"use client";
+
+// Search, subject, status and class-teacher filters shared by both the list
+// and grid views. Fully controlled: the page owns state.
+
+import { Button, Input, Select } from "@/components/ui";
+import type { SubjectOption } from "@/hooks/useTeachers";
+import { EMPTY_FILTERS, STATUS_LABEL, hasActiveFilters, type TeacherFilterState } from "./utils";
+
+const STATUSES = Object.keys(STATUS_LABEL) as (keyof typeof STATUS_LABEL)[];
+
+export interface TeacherFiltersProps {
+  value: TeacherFilterState;
+  onChange: (next: TeacherFilterState) => void;
+  subjects: SubjectOption[];
+  shown: number;
+  total: number;
+}
+
+export function TeacherFilters({ value, onChange, subjects, shown, total }: TeacherFiltersProps) {
+  const active = hasActiveFilters(value);
+
+  return (
+    <section aria-label="Filter teachers" className="rounded-2xl bg-surface p-4 shadow-soft ring-1 ring-ghost animate-fade-up">
+      <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
+        <Input
+          pill
+          type="search"
+          autoComplete="off"
+          leftIcon="solar:magnifer-linear"
+          placeholder="Search name, email, admission, school or subject"
+          aria-label="Search teachers"
+          value={value.search}
+          onChange={(e) => onChange({ ...value, search: e.target.value })}
+          className="lg:w-80"
+          inputClassName="[&::-webkit-search-cancel-button]:appearance-none"
+        />
+
+        <div className="w-44">
+          <Select
+            pill
+            aria-label="Filter by subject"
+            value={value.subjectId}
+            onChange={(e) => onChange({ ...value, subjectId: e.target.value })}
+          >
+            <option value="all">All subjects</option>
+            {subjects.map((s) => (
+              <option key={s.id} value={String(s.id)}>
+                {s.subject_name}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="w-40">
+          <Select
+            pill
+            aria-label="Filter by status"
+            value={value.status}
+            onChange={(e) => onChange({ ...value, status: e.target.value as TeacherFilterState["status"] })}
+          >
+            <option value="all">All statuses</option>
+            {STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {STATUS_LABEL[status]}
+              </option>
+            ))}
+          </Select>
+        </div>
+
+        <div className="w-44">
+          <Select
+            pill
+            aria-label="Filter by class teacher"
+            value={value.classTeacher}
+            onChange={(e) => onChange({ ...value, classTeacher: e.target.value as TeacherFilterState["classTeacher"] })}
+          >
+            <option value="all">All teachers</option>
+            <option value="yes">Class teachers only</option>
+            <option value="no">Non class teachers</option>
+          </Select>
+        </div>
+
+        {active ? (
+          <Button size="sm" variant="ghost" leftIcon="solar:close-circle-linear" onClick={() => onChange(EMPTY_FILTERS)}>
+            Clear filters
+          </Button>
+        ) : null}
+      </div>
+
+      <p className="mt-3 text-xs text-ink-soft tabular-nums" aria-live="polite">
+        {shown === total ? `${total} ${total === 1 ? "teacher" : "teachers"}` : `${shown} of ${total} teachers match`}
+      </p>
+    </section>
+  );
+}
+
+export default TeacherFilters;

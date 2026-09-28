@@ -1,8 +1,13 @@
 'use client';
 
+// Breadcrumb trail shown above every dashboard page (rendered by DashboardShell).
+// Labels come from the small maps below; unknown segments are title-cased.
+// Styling: design tokens only (light + dark), Solar icons via Iconify.
+
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronRight, House } from 'lucide-react';
+import { Icon } from '@/components/ui/Icon';
+import { cn } from '@/lib/cn';
 
 type BreadcrumbItem = {
   href: string;
@@ -13,6 +18,12 @@ type BreadcrumbItem = {
 
 const SEGMENT_LABELS: Record<string, string> = {
   dashboard: 'Dashboard',
+  admin: 'Admin',
+  teach: 'Teaching',
+  learn: 'Learning',
+  family: 'Family',
+  dev: 'Developer',
+  audit: 'Audit Log',
   'admin-role': 'Admin Role',
   ai: 'AI',
   allocation: 'Allocation',
@@ -133,37 +144,41 @@ export default function BreadCrumb() {
     return null;
   }
 
+  const crumb =
+    'inline-flex items-center gap-1.5 rounded-md text-sm font-semibold outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus';
+
   return (
     <nav aria-label="Breadcrumb" className="flex flex-wrap items-center">
-      <ol className="inline-flex flex-wrap items-center gap-y-2 text-sm">
+      <ol className="inline-flex flex-wrap items-center gap-y-1 text-sm">
         {breadcrumbs.map((item, index) => (
           <li key={item.href} className="inline-flex items-center">
             {index > 0 && (
-              <ChevronRight
-                aria-hidden="true"
-                className="mx-2 h-4 w-4 text-gray-400"
+              <Icon
+                icon="solar:alt-arrow-right-linear"
+                width={14}
+                className="mx-1.5 shrink-0 text-muted/70"
               />
             )}
 
             {item.current ? (
-              <span
-                aria-current="page"
-                className="inline-flex items-center gap-2 font-semibold text-[#007146]"
-              >
-                {index === 0 && <House aria-hidden="true" className="h-4 w-4" />}
+              <span aria-current="page" className={cn(crumb, 'text-primary-ink')}>
+                {index === 0 && <Icon icon="solar:home-2-linear" width={16} />}
                 {item.label}
               </span>
             ) : !item.linkable ? (
-              <span className="inline-flex items-center gap-2 font-semibold text-gray-500">
-                {index === 0 && <House aria-hidden="true" className="h-4 w-4" />}
+              <span className={cn(crumb, 'text-muted')}>
+                {index === 0 && <Icon icon="solar:home-2-linear" width={16} />}
                 {item.label}
               </span>
             ) : (
               <Link
                 href={item.href}
-                className="inline-flex items-center gap-2 font-semibold text-gray-600 transition-colors duration-200 hover:text-[#F19F24]"
+                className={cn(
+                  crumb,
+                  'text-muted transition-colors duration-300 ease-standard hover:text-ink',
+                )}
               >
-                {index === 0 && <House aria-hidden="true" className="h-4 w-4" />}
+                {index === 0 && <Icon icon="solar:home-2-linear" width={16} />}
                 {item.label}
               </Link>
             )}

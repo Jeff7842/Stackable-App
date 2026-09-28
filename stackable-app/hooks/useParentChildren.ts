@@ -1,18 +1,25 @@
+// =============================================================================
+// useParentChildren - the children linked to the signed-in parent
+// (GET /api/parent/children -> { ok: true, data: ChildCard[] }).
+// Normalised: cards without an id are dropped, averages / attendance stay null
+// when the school has not recorded them (never 0).
+// =============================================================================
+
 "use client";
+
 import { useQuery } from "@tanstack/react-query";
 import { apiGet } from "@/lib/api/http";
 import { qk } from "@/lib/query/keys";
-import type { ChildCard } from "@/lib/repositories/parent.repo";
-
-type ApiResponse = { ok: true; data: ChildCard[] };
+import { normalizeChildCards } from "@/components/portal/student/normalize";
 
 export function useParentChildren() {
-  const { data, isLoading, isError, error } = useQuery({
+  return useQuery({
     queryKey: qk.parent.children(),
     queryFn: ({ signal }) =>
-      apiGet<ApiResponse>("/api/parent/children", signal).then((res) => res.data),
+      apiGet<{ ok: true; data: unknown }>("/api/parent/children", signal).then((res) =>
+        normalizeChildCards(res.data),
+      ),
     staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
-
-  return { data, isLoading, isError, error };
 }

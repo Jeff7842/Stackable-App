@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { requireAuth } from "@/lib/api/guard";
-import { toErrorResponse, notFound } from "@/lib/api/errors";
+import { notFound, toErrorResponse } from "@/lib/api/errors";
+import {
+  findSchoolForCodes,
+  insertMissingSecurityCodes,
+  listSecurityCodeRows,
+} from "@/lib/repositories/school-admin.repo";
 import {
   buildSchoolSecurityCodeEntries,
   buildSchoolSecurityCodeRows,
@@ -11,16 +15,7 @@ import {
   type SchoolSecurityCodeLabel,
 } from "@/lib/school-security";
 
-type Context = {
-  params: Promise<{ id: string }>;
-};
-
-type SchoolSecurityCodeRow = {
-  code_hash: string;
-  code_label: SchoolSecurityCodeLabel;
-  is_active: boolean;
-  used_count: number;
-};
+type Context = { params: Promise<{ id: string }> };
 
 function safeFileName(value: string) {
   return value
@@ -31,72 +26,39 @@ function safeFileName(value: string) {
 }
 
 async function ensureSchoolSecurityRows(schoolId: string) {
-  const { data: existingRows, error } = await supabaseAdmin
-    .from("school_security_codes")
-    .select("code_hash, code_label, is_active, used_count")
-    .eq("school_id", schoolId);
+  const existingRows = await listSecurityCodeRows(schoolId);
+  const existingLabels = new Set(existingRows.map((row) => row.code_label));
+  const missingLabels = SCHOOL_SECURITY_CODE_LABELS.filter((label) => !existingLabels.has(label));
 
-  if (error) {
-    throw new Error(error.message);
-  }
+  if (missingLabels.length === 0) return existingRows;
 
-  const typedRows = (existingRows ?? []) as SchoolSecurityCodeRow[];
-  const existingLabels = new Set(typedRows.map((row) => row.code_label));
-  const missingLabels = SCHOOL_SECURITY_CODE_LABELS.filter(
-    (label) => !existingLabels.has(label),
+  const rows = buildSchoolSecurityCodeRows(schoolId).filter((row) =>
+    missingLabels.includes(row.code_label as SchoolSecurityCodeLabel),
   );
-
-  if (missingLabels.length > 0) {
-    const rows = buildSchoolSecurityCodeRows(schoolId).filter((row) =>
-      missingLabels.includes(row.code_label),
-    );
-
-    const { error: insertError } = await supabaseAdmin
-      .from("school_security_codes")
-      .insert(rows);
-
-    if (insertError) {
-      throw new Error(insertError.message);
-    }
-
-    return [
-      ...typedRows,
-      ...rows.map((row) => ({
-        code_hash: row.code_hash,
-        code_label: row.code_label,
-        is_active: row.is_active,
-        used_count: row.used_count,
-      })),
-    ];
-  }
-
-  return typedRows;
+  await insertMissingSecurityCodes(rows);
+  return [...existingRows, ...rows];
 }
 
 export async function GET(request: NextRequest, context: Context) {
   let ctx;
   try {
-    ctx = await requireAuth(request, { roles: ["super-admin"], rateLimit: "read" });
-  } catch (err) { return toErrorResponse(err); }
+    ctx = await requireAuth(request, { roles: ["super-admin"], rateLimit: "read", denyImpersonation: true });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
     const { id } = await context.params;
 
-    // Cross-tenant guard: super-admins can access any school's codes.
-    // Non-super-admins are already blocked by the role check above.
-    // Extra defence: even super-admins must request a real, existing school (handled below).
-    // Return 404 (not 403) if a non-owner somehow reaches this point to avoid leaking existence.
+    // Cross-tenant guard: super-admins can access any school's codes. Non-super-admins are
+    // already blocked by the role check above. Return 404 (not 403) so a stray id never
+    // confirms a school's existence to someone who should not be here.
     if (ctx.role !== "super-admin" && id !== ctx.schoolId) {
       return toErrorResponse(notFound());
     }
 
-    const { data: school, error } = await supabaseAdmin
-      .from("schools")
-      .select("id, name, code, email")
-      .eq("id", id)
-      .maybeSingle();
-
-    if (error || !school) {
+    const school = await findSchoolForCodes(id);
+    if (!school) {
       return NextResponse.json({ error: "School not found." }, { status: 404 });
     }
 
@@ -104,34 +66,20 @@ export async function GET(request: NextRequest, context: Context) {
     const activeRows = rows.filter((row) => row.is_active);
 
     if (activeRows.length === 0) {
-      return NextResponse.json(
-        { error: "No active security codes found for this school." },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "No active security codes found for this school." }, { status: 404 });
     }
 
     const generatedEntries = buildSchoolSecurityCodeEntries(school.id);
-    const generatedByLabel = new Map(
-      generatedEntries.map((entry) => [entry.label, entry.code]),
-    );
+    const generatedByLabel = new Map(generatedEntries.map((entry) => [entry.label, entry.code]));
 
     const codes = activeRows.map((row) => {
-      const code = generatedByLabel.get(row.code_label);
-      if (!code) {
-        throw new Error(`Missing generator for label ${row.code_label}.`);
+      const label = row.code_label as SchoolSecurityCodeLabel;
+      const code = generatedByLabel.get(label);
+      if (!code) throw new Error(`Missing generator for label ${label}.`);
+      if (hashSchoolSecurityCode(code) !== row.code_hash) {
+        throw new Error(`Stored security code hash did not match the generated code for ${label}.`);
       }
-
-      const matchesHash = hashSchoolSecurityCode(code) === row.code_hash;
-      if (!matchesHash) {
-        throw new Error(
-          `Stored security code hash did not match the generated code for ${row.code_label}.`,
-        );
-      }
-
-      return {
-        label: row.code_label,
-        code,
-      };
+      return { label, code };
     });
 
     const pdf = buildSchoolSecurityCodesPdf({
@@ -158,12 +106,7 @@ export async function GET(request: NextRequest, context: Context) {
   } catch (error) {
     console.error("school security codes route error", error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unexpected server error.",
-      },
+      { error: error instanceof Error ? error.message : "Unexpected server error." },
       { status: 500 },
     );
   }

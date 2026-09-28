@@ -1,34 +1,47 @@
+// =============================================================================
+// GET /api/subjects/[id] — detail for one subject offering of the caller's school.
+// A subject id from another school answers 404, exactly like an id that doesn't exist.
+// =============================================================================
+
 import { NextRequest, NextResponse } from "next/server";
-import { getSubjectDetailData, getSchoolSubjectOrThrow } from "@/lib/subjects-server";
 import { requireAuth } from "@/lib/api/guard";
-import { toErrorResponse, notFound } from "@/lib/api/errors";
+import { toErrorResponse } from "@/lib/api/errors";
+import { cached } from "@/lib/cache";
+import {
+  SUBJECT_CACHE_ENTITY,
+  SUBJECT_DETAIL_TTL_SECONDS,
+  SUBJECT_READ_ROLES,
+  getSubjectDetailData,
+  requireSubjectId,
+} from "@/lib/subjects-server";
+
+export const dynamic = "force-dynamic";
 
 type Context = {
   params: Promise<{ id: string }>;
 };
 
+/** Response: { ok: true, data: SubjectDetailPayload }. */
 export async function GET(request: NextRequest, context: Context) {
-  let ctx;
+  let auth;
   try {
-    ctx = await requireAuth(request, { pageKey: "subjects", rateLimit: "read" });
-  } catch (err) { return toErrorResponse(err); }
+    auth = await requireAuth(request, { roles: SUBJECT_READ_ROLES, pageKey: "subjects", rateLimit: "read" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
-    const { id } = await context.params;
-
-    // Cross-tenant guard: verify the school_subject belongs to the caller's school.
-    const offering = await getSchoolSubjectOrThrow(id);
-    if (offering.school_id !== ctx.schoolId) {
-      return toErrorResponse(notFound());
-    }
-
-    const data = await getSubjectDetailData(id);
+    const id = requireSubjectId((await context.params).id);
+    const { schoolId } = auth;
+    const data = await cached(
+      schoolId,
+      SUBJECT_CACHE_ENTITY,
+      SUBJECT_DETAIL_TTL_SECONDS,
+      () => getSubjectDetailData(id, schoolId),
+      `detail:${id}`,
+    );
     return NextResponse.json({ ok: true, data });
   } catch (error) {
-    console.error("subject detail route error", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }

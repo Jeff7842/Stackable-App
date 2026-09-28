@@ -9,6 +9,15 @@
 // =============================================================================
 
 import { prisma } from "@/lib/db/prisma";
+import { ApiError, notFound } from "@/lib/api/errors";
+import { cached, bumpCache } from "@/lib/cache";
+import { insertAudit, type AuditContext } from "@/lib/repositories/audit-log.repo";
+import type { CreateUserParsed, UpdateUserParsed } from "@/lib/validation/user-admin";
+
+// Only a real (single) schoolId filter is cacheable per-tenant; "all schools" (super-admin,
+// no filter) is a much less common view, and every user's data is in it, so a version bump
+// there would fire on nearly every write anyway - not worth the bucket.
+const USERS_CACHE_TTL = 30;
 
 export type UserPermission = {
   page_key: string;
@@ -45,6 +54,24 @@ export async function listUsersWithPermissions(opts: {
   status?: string;
   search?: string;
 } = {}): Promise<UserListItem[]> {
+  const cacheableSchoolId = opts.schoolId && opts.schoolId !== "all" ? opts.schoolId : null;
+  if (cacheableSchoolId) {
+    // role/status/search vary a lot (typed live in the UI); cache only the common, unfiltered
+    // "everyone at this school" read that the page loads with, and filter client-side elsewhere.
+    const isUnfiltered = (!opts.role || opts.role === "all") && (!opts.status || opts.status === "all") && !opts.search;
+    if (isUnfiltered) {
+      return cached(cacheableSchoolId, "users-list", USERS_CACHE_TTL, () => listUsersWithPermissionsUncached(opts));
+    }
+  }
+  return listUsersWithPermissionsUncached(opts);
+}
+
+async function listUsersWithPermissionsUncached(opts: {
+  schoolId?: string;
+  role?: string;
+  status?: string;
+  search?: string;
+}): Promise<UserListItem[]> {
   const where: Record<string, unknown> = {};
   if (opts.schoolId && opts.schoolId !== "all") where.school_id = opts.schoolId;
   if (opts.role && opts.role !== "all") where.role = opts.role;
@@ -121,4 +148,154 @@ export async function listUsersWithPermissions(opts: {
       can_access: p.can_access,
     })),
   }));
+}
+
+/* --------------------------------------------------------------- targets --- */
+
+/** The fields checkUserUpdate/checkUserDelete need to decide if an action is allowed. */
+export function findUserTarget(id: string) {
+  return prisma.users.findUnique({
+    where: { id },
+    select: { id: true, school_id: true, role: true, status: true },
+  });
+}
+
+/* --------------------------------------------------------------- db errors --- */
+
+function dbCode(err: unknown): string | null {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" ? code : null;
+}
+
+/* ------------------------------------------------------------------ create --- */
+
+const optionalBigInt = (value: string | null | undefined): bigint | null | undefined =>
+  value === undefined ? undefined : value === null ? null : BigInt(value);
+
+/**
+ * Create a user (status "pending", must_change_password true - unchanged from the old route),
+ * its optional profile photo and its page-permission rows, in one transaction with the audit row.
+ *
+ * @throws 409 EMAIL_TAKEN when the (school_id, email) pair is already used
+ */
+export async function createUserRecord(
+  input: CreateUserParsed,
+  audit: AuditContext,
+): Promise<{ id: string }> {
+  try {
+    const created = await prisma.$transaction(async (tx) => {
+      const user = await tx.users.create({
+        data: {
+          first_name: input.first_name,
+          last_name: input.last_name,
+          email: input.email ?? null,
+          phone: optionalBigInt(input.phone) ?? null,
+          phone_2: optionalBigInt(input.phone_2) ?? null,
+          school_id: input.school_id,
+          role: input.role,
+          status: "pending",
+          must_change_password: true,
+        },
+        select: { id: true },
+      });
+
+      if (input.photo_url) {
+        await tx.user_profiles.upsert({
+          where: { user_id: user.id },
+          create: { user_id: user.id, photo_url: input.photo_url },
+          update: { photo_url: input.photo_url, updated_at: new Date() },
+        });
+      }
+
+      if (input.permissions?.length) {
+        await tx.user_page_permissions.createMany({
+          data: input.permissions.map((p) => ({ user_id: user.id, page_key: p.page_key, can_access: p.can_access })),
+        });
+      }
+
+      await insertAudit(tx, audit, {
+        schoolId: input.school_id,
+        action: "user.create",
+        targetUserId: user.id,
+        metadata: { role: input.role },
+      });
+
+      return user;
+    });
+    await bumpCache(input.school_id, "users");
+    return created;
+  } catch (err) {
+    if (dbCode(err) === "P2002") {
+      throw new ApiError(409, "A user with this email already exists at this school.", { code: "EMAIL_TAKEN" });
+    }
+    throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ update --- */
+
+/**
+ * Apply an edit: the users row, its permission rows (full replace when `permissions` is present),
+ * in one transaction with the audit row.
+ *
+ * @throws 404 when the user no longer exists; 409 EMAIL_TAKEN on a duplicate (school_id, email)
+ */
+export async function updateUserRecord(
+  patch: UpdateUserParsed,
+  audit: AuditContext,
+): Promise<void> {
+  const { id, permissions, clear_history: _clearHistory, ...rest } = patch;
+  void _clearHistory; // activity_logs / login_history / notifications never existed in this database
+  try {
+    const schoolId = await prisma.$transaction(async (tx) => {
+      const before = await tx.users.findUnique({ where: { id }, select: { school_id: true } });
+      if (!before) throw notFound("User not found.");
+
+      await tx.users.updateMany({ where: { id }, data: rest });
+
+      if (permissions) {
+        await tx.user_page_permissions.deleteMany({ where: { user_id: id } });
+        if (permissions.length) {
+          await tx.user_page_permissions.createMany({
+            data: permissions.map((p) => ({ user_id: id, page_key: p.page_key, can_access: p.can_access })),
+          });
+        }
+      }
+
+      await insertAudit(tx, audit, { schoolId: before.school_id, action: "user.update", targetUserId: id, metadata: { fields: Object.keys(rest) } });
+      return before.school_id;
+    });
+    await bumpCache(schoolId, "users");
+  } catch (err) {
+    if (dbCode(err) === "P2002") {
+      throw new ApiError(409, "A user with this email already exists at this school.", { code: "EMAIL_TAKEN" });
+    }
+    throw err;
+  }
+}
+
+/* ------------------------------------------------------------------ delete --- */
+
+/**
+ * Delete a user. The database cascades to their profile, permissions and sessions. The audit row
+ * is written first, in the same transaction, and has no foreign key so it survives.
+ *
+ * @throws 404 when the user does not exist; 409 when a linked record still blocks the delete
+ */
+export async function deleteUserRecord(id: string, audit: AuditContext): Promise<void> {
+  try {
+    const schoolId = await prisma.$transaction(async (tx) => {
+      const user = await tx.users.findUnique({ where: { id }, select: { school_id: true, role: true } });
+      if (!user) throw notFound("User not found.");
+      await insertAudit(tx, audit, { schoolId: user.school_id, action: "user.delete", targetUserId: id, metadata: { role: user.role } });
+      await tx.users.deleteMany({ where: { id } });
+      return user.school_id;
+    });
+    await bumpCache(schoolId, "users");
+  } catch (err) {
+    if (dbCode(err) === "P2003") {
+      throw new ApiError(409, "This user still has records that must be removed first.", { code: "USER_HAS_LINKED_RECORDS" });
+    }
+    throw err;
+  }
 }
