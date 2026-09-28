@@ -711,9 +711,12 @@ model ba_user {
   image            String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
-  // Tenancy + role (mirrors users.school_id / users.role)
+  // Tenancy + role (mirrors users.school_id / users.role / users.school_code / users.status)
   schoolId         String?  @db.Uuid
   role             String?
+  schoolCode       String?
+  status           String?  @default("active")
+  mustChangePassword Boolean @default(false)
   twoFactorEnabled Boolean  @default(false)
 
   accounts   ba_account[]
@@ -733,6 +736,8 @@ model ba_account {
   idToken       String?
   expiresAt     DateTime?
   password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
 
   user ba_user @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -741,13 +746,21 @@ model ba_account {
 
 model ba_session {
   id        String   @id
+  token     String
   expiresAt DateTime
   ipAddress String?
   userAgent String?
   userId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   user ba_user @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  // Not @unique: adding a unique constraint via `prisma db push` requires
+  // --accept-data-loss, which this environment blocks by policy even on an
+  // empty table. Lookups still need to be fast, and Better Auth's own
+  // 32-char random tokens make collisions cryptographically negligible.
+  @@index([token], map: "idx_ba_sessions_token")
   @@map("ba_sessions")
 }
 
@@ -763,10 +776,11 @@ model ba_verification {
 }
 
 model ba_two_factor {
-  id          String @id
+  id          String  @id
   secret      String
   backupCodes String
   userId      String
+  verified    Boolean @default(true)
 
   user ba_user @relation(fields: [userId], references: [id], onDelete: Cascade)
 

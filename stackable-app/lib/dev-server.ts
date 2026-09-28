@@ -571,9 +571,11 @@ export async function startImpersonation(input: {
   const reason = validateReason(input.reason);
   if (!reason.ok) throw badRequest(reason.message, { fields: { reason: reason.message } });
 
-  // Impersonation is tied to the legacy session row; the Better Auth path has none.
+  // Impersonation is welded to the actor's own session row id (user_sessions.id, or
+  // ba_session.id under Better Auth — guard.ts's resolveContext() sets this on both
+  // paths). Defensive only: resolveRealSession() never returns a context without one.
   if (!actor.sessionId) {
-    throw new ApiError(501, "Impersonation is only available with the legacy session provider.", {
+    throw new ApiError(501, "Could not identify your current session.", {
       code: "IMPERSONATION_UNSUPPORTED",
     });
   }

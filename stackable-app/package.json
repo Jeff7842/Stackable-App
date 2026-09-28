@@ -16,6 +16,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "db:transfer": "tsx scripts/migrate-data.ts",
+    "db:migrate-auth": "tsx scripts/migrate-to-better-auth.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
@@ -51,6 +52,7 @@
     "pg": "^8.21.0",
     "pingram": "^1.0.1",
     "posthog-js": "^1.434.15",
+    "qrcode": "^1.5.4",
     "react": "^19.2.4",
     "react-apexcharts": "^2.1.0",
     "react-dom": "^19.2.4",
@@ -63,6 +65,7 @@
     "@types/bcryptjs": "^3.0.0",
     "@types/node": "^25.3.5",
     "@types/pg": "^8.20.0",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "babel-plugin-react-compiler": "^1.0.0",
