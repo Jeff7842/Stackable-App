@@ -1,163 +1,191 @@
-import Image from "next/image";
-import Link from "next/link";
-import { createClient } from "@supabase/supabase-js";
-import { notFound } from "next/navigation";
+"use client";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+/**
+ * Student profile (/dashboard/students/[id]) - full record for one student:
+ * identity, class placement, contacts, welfare notes, guardians, subjects,
+ * recent grades and attendance.
+ *
+ * Converted from a server component with a direct Supabase query to a client
+ * page on GET /api/students/[id] via useStudent(id) (hooks/useStudents.ts,
+ * already built - Prisma/Neon backed). Guardians, subjects, recent grades and
+ * attendance are new here: the old page only showed the student row plus one
+ * average-grade lookup.
+ */
+import { useParams } from "next/navigation";
+import { Avatar, Badge, Button, DataTable, EmptyState, Skeleton } from "@/components/ui";
+import { useStudent, type StudentGrade } from "@/hooks/useStudents";
+import { StudentStatusBadge } from "@/components/admin/students/StatusBadge";
+import { formatDate } from "@/components/admin/students/utils";
 
-function formatDate(value: string | null) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat("en-GB", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  }).format(date);
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl bg-surface p-4 shadow-soft ring-1 ring-ghost">
+      <p className="text-[11px] font-semibold tracking-wider text-muted uppercase">{label}</p>
+      <p className="mt-1 text-sm font-medium text-ink">{value || "—"}</p>
+    </div>
+  );
 }
 
-function getStatusClasses(status: string) {
-  switch (status) {
-    case "active":
-      return "bg-green-50 text-green-700 border-green-200";
-    case "suspended":
-      return "bg-red-50 text-red-700 border-red-200";
-    case "pending":
-      return "bg-yellow-50 text-yellow-700 border-yellow-200";
-    case "graduated":
-      return "bg-blue-50 text-blue-700 border-blue-200";
-    default:
-      return "bg-gray-100 text-gray-700 border-gray-200";
+export default function StudentProfilePage() {
+  const params = useParams();
+  const id = params?.id as string;
+  const { data, isLoading, isError, error, refetch } = useStudent(id);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-5 pb-6">
+        <Skeleton className="h-32" rounded="2xl" />
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[320px_1fr]">
+          <Skeleton className="h-64" rounded="2xl" />
+          <Skeleton className="h-64" rounded="2xl" />
+        </div>
+      </div>
+    );
   }
-}
 
-function scoreToGrade(score: number | null | undefined) {
-  if (score == null) return "—";
+  if (isError || !data) {
+    return (
+      <div className="rounded-2xl bg-surface shadow-soft ring-1 ring-ghost">
+        <EmptyState
+          icon="solar:danger-triangle-linear"
+          title="Student not found"
+          description={error instanceof Error ? error.message : "The requested student record could not be loaded."}
+          action={
+            <Button variant="secondary" leftIcon="solar:refresh-linear" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
-  if (score >= 11.5) return "A";
-  if (score >= 10.5) return "B+";
-  if (score >= 9.5) return "B";
-  if (score >= 8.5) return "B-";
-  if (score >= 7.5) return "C+";
-  if (score >= 6.5) return "C";
-  if (score >= 5.5) return "C-";
-  if (score >= 4.5) return "D+";
-  if (score >= 3.5) return "D";
-  if (score >= 2.5) return "D-";
-  if (score >= 1.5) return "E";
-  return "F";
-}
-
-export default async function StudentDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-
-  const { data, error } = await supabase
-    .from("students")
-    .select(`
-      *,
-      users!students_user_fk (
-        first_name,
-        last_name,
-        email,
-        phone
-      )
-    `)
-    .eq("id", id)
-    .single();
-
-  if (error || !data) notFound();
-
-  const { data: averageGradeRow } = await supabase
-    .from("student_average_grade")
-    .select("avg_score")
-    .eq("student_id", id)
-    .single();
-
-  const averageGrade = scoreToGrade(averageGradeRow?.avg_score);
-
-  const fullName =
-    `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim() ||
-    "Unnamed student";
+  const { student, average, guardians, subjects, recent_grades, attendance } = data;
 
   return (
-    <div className="min-h-screen bg-[#F6F6F6] pl-5 pr-5 pt-5 pb-6">
-      <div className="rounded-[32px] border border-white bg-[#FFFDF8] p-6 shadow-[0_30px_80px_rgba(15,23,42,0.08)]">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <Link
-              href="/dashboard/students"
-              className="text-sm font-medium text-[#007146] hover:text-[#F19F24]"
-            >
-              ← Back to students
-            </Link>
-            <h1 className="mt-2 text-[28px] font-bold text-gray-900">{fullName}</h1>
-            <p className="mt-1 text-sm text-gray-500">
-              Full student profile and operational details.
-            </p>
-          </div>
+    <div className="space-y-5 pb-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between animate-fade-up">
+        <Button as="a" href="/dashboard/students" variant="ghost" size="sm" leftIcon="solar:arrow-left-linear">
+          Back to students
+        </Button>
+        <StudentStatusBadge status={student.status} />
+      </div>
 
-          <span
-            className={`inline-flex rounded-full border px-4 py-2 text-sm font-semibold capitalize ${getStatusClasses(
-              data.status,
-            )}`}
-          >
-            {data.status}
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[360px_1fr]">
-          <div className="rounded-[28px] border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[340px_1fr]">
+        <div className="space-y-5">
+          <div className="rounded-2xl bg-surface p-6 shadow-soft ring-1 ring-ghost">
             <div className="flex flex-col items-center text-center">
-              {data.profile_picture ? (
-                <Image
-                  src={data.profile_picture}
-                  alt={fullName}
-                  width={120}
-                  height={120}
-                  className="h-[120px] w-[120px] rounded-full object-cover ring-4 ring-[#F7F9E2]"
-                />
-              ) : (
-                <div className="flex h-[120px] w-[120px] items-center justify-center rounded-full bg-[#F7F9E2] text-3xl font-bold text-[#007146]">
-                  {fullName.slice(0, 2).toUpperCase()}
+              <Avatar name={student.full_name} src={student.profile_picture} size="xl" />
+              <h2 className="mt-4 font-display text-xl font-semibold text-ink">{student.full_name}</h2>
+              <p className="mt-1 text-sm text-ink-soft">{student.admission_no}</p>
+              <div className="mt-4 grid w-full grid-cols-2 gap-3 text-left">
+                <div className="rounded-xl bg-recessed p-3">
+                  <p className="text-[11px] font-semibold tracking-wider text-muted uppercase">Average grade</p>
+                  <p className="mt-1 text-lg font-semibold text-ink">{average.grade ?? "—"}</p>
                 </div>
-              )}
-
-              <h2 className="mt-4 text-xl font-bold text-gray-900">{fullName}</h2>
-              <p className="mt-1 text-sm text-gray-500">{data.admission_no}</p>
+                <div className="rounded-xl bg-recessed p-3">
+                  <p className="text-[11px] font-semibold tracking-wider text-muted uppercase">Attendance</p>
+                  <p className="mt-1 text-lg font-semibold text-ink">{attendance.rate}%</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {[
-              ["School", data.school_name || "—"],
-              ["Class", data.class_id || "Unassigned"],
-              ["Date of Birth", formatDate(data.date_of_birth)],
-              ["Parent Contact 1", data.phone || "—"],
-              ["Parent Contact 2", data.phone2 || "—"],
-              ["Email", data.email || data.users?.email || "—"],
-              ["Location", data.location || "—"],
-              ["Home Address", data.home_address || "—"],
-              ["Emergency Contact", data.emergency_contact || "—"],
-              ["Health Status", data.health_status || "—"],
-              ["Average Grade", averageGrade || "—"],
-              ["Other Info", data.other_info || "—"],
-            ].map(([label, value]) => (
-              <div
-                key={label}
-                className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm"
-              >
-                <p className="text-xs uppercase tracking-wide text-gray-400">{label}</p>
-                <p className="mt-2 text-sm font-medium text-gray-900">{value}</p>
-              </div>
-            ))}
+          <div className="rounded-2xl bg-surface p-5 shadow-soft ring-1 ring-ghost">
+            <h3 className="font-display text-base font-semibold text-ink">Guardians</h3>
+            {guardians.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-soft">No guardians linked yet.</p>
+            ) : (
+              <ul className="mt-3 space-y-3">
+                {guardians.map((guardian) => (
+                  <li key={guardian.parent_id} className="rounded-xl bg-recessed p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="truncate text-sm font-semibold text-ink">{guardian.name}</p>
+                      {guardian.is_primary ? <Badge tone="info" size="sm">Primary</Badge> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-ink-soft capitalize">{guardian.relationship}</p>
+                    <p className="mt-1 text-xs text-muted">{guardian.phone || guardian.email || "No contact on file"}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+        </div>
+
+        <div className="space-y-5">
+          <section className="rounded-2xl bg-surface p-5 shadow-soft ring-1 ring-ghost">
+            <h3 className="font-display text-base font-semibold text-ink">School details</h3>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <Fact label="School" value={student.school_name} />
+              <Fact label="Class" value={student.class_label ?? "Unassigned"} />
+              <Fact label="Class teacher" value={student.class_teacher_name ?? "—"} />
+              <Fact label="Date of birth" value={formatDate(student.date_of_birth)} />
+              <Fact label="Joined" value={formatDate(student.created_at)} />
+              <Fact label="Status" value={student.status} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-surface p-5 shadow-soft ring-1 ring-ghost">
+            <h3 className="font-display text-base font-semibold text-ink">Contact & welfare</h3>
+            <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <Fact label="Parent contact 1" value={student.phone ?? ""} />
+              <Fact label="Parent contact 2" value={student.phone2 ?? ""} />
+              <Fact label="Email" value={student.email ?? ""} />
+              <Fact label="Location" value={student.location ?? ""} />
+              <Fact label="Home address" value={student.home_address ?? ""} />
+              <Fact label="Emergency contact" value={student.emergency_contact ?? ""} />
+              <Fact label="Health status" value={student.health_status ?? ""} />
+              <Fact label="Other info" value={student.other_info ?? ""} />
+            </div>
+          </section>
+
+          <section className="rounded-2xl bg-surface p-5 shadow-soft ring-1 ring-ghost">
+            <h3 className="font-display text-base font-semibold text-ink">Subjects</h3>
+            {subjects.length === 0 ? (
+              <p className="mt-2 text-sm text-ink-soft">No subjects assigned yet.</p>
+            ) : (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {subjects.map((subject) => (
+                  <Badge key={subject.subject_id} tone="neutral">
+                    {subject.subject_name}
+                    {subject.teacher_name ? ` · ${subject.teacher_name}` : ""}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-2xl bg-surface shadow-soft ring-1 ring-ghost">
+            <div className="p-5 pb-0">
+              <h3 className="font-display text-base font-semibold text-ink">Recent grades</h3>
+            </div>
+            <DataTable<StudentGrade>
+              caption="Recent grades"
+              searchable={false}
+              getRowId={(g) => `${g.subject_id}-${g.term}-${g.created_at}`}
+              columns={[
+                { accessorKey: "subject_name", header: "Subject" },
+                { accessorKey: "term", header: "Term" },
+                { accessorKey: "grade", header: "Grade", meta: { className: "font-semibold text-ink" } },
+                {
+                  id: "score",
+                  header: "Score",
+                  accessorFn: (g) => g.normalized_pct ?? g.raw_score ?? null,
+                  cell: (c) => (c.getValue<number | null>() != null ? `${c.getValue<number | null>()}%` : "—"),
+                },
+                {
+                  id: "date",
+                  header: "Recorded",
+                  accessorFn: (g) => g.created_at ?? "",
+                  cell: (c) => formatDate(c.getValue<string>() || null),
+                },
+              ]}
+              data={recent_grades}
+              emptyState={
+                <EmptyState icon="solar:notebook-linear" title="No graded work yet" description="Grades will appear here once recorded." />
+              }
+            />
+          </section>
         </div>
       </div>
     </div>

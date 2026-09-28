@@ -1,6 +1,14 @@
 export const SUBJECT_RESOURCES_BUCKET = "subject_resources";
 export const SUBJECT_BACKGROUND_BUCKET = "subject_backgrounds";
 
+// Upload limits. The API enforces them (lib/validation/subjects.ts); the UI can use the same
+// numbers and `accept` strings so the file picker and the server agree.
+export const SUBJECT_BACKGROUND_MAX_BYTES = 8 * 1024 * 1024;
+export const SUBJECT_RESOURCE_MAX_BYTES = 20 * 1024 * 1024;
+export const SUBJECT_BACKGROUND_ACCEPT = "image/jpeg,image/png,image/webp,image/gif,image/avif";
+export const SUBJECT_RESOURCE_ACCEPT =
+  ".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.txt,.csv,.rtf,.epub,.zip,.jpg,.jpeg,.png,.webp,.gif,.mp3,.m4a,.wav,.ogg,.aac,.mp4,.m4v,.webm,.mov";
+
 export const SUBJECT_ABSTRACT_IMAGES = [
   "/abstract/1586742_4393.jpg",
   "/abstract/166363497_497acf43-f4f9-4aa6-9e5b-7e426bcef088.jpg",
@@ -303,6 +311,12 @@ export type SubjectResourceCard = {
   authorName: string | null;
   coverImageUrl: string | null;
   storagePath: string | null;
+  /**
+   * Same-origin download/stream URL for an uploaded file (`/api/subjects/resource?path=...`),
+   * or null for link-only resources. Use this for <video>/<audio>/download links;
+   * `storagePath` is only the internal bucket key and is not a usable URL.
+   */
+  fileUrl?: string | null;
   sourceUrl: string | null;
   visibility: ResourceVisibility | string;
   uploadedBy: string | null;

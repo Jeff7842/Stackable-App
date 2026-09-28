@@ -1,256 +1,190 @@
+// =============================================================================
+// /api/subjects/[id]/coursework
+//   GET   -> class offerings, syllabus progress, curriculum tree and resources
+//   POST  -> multipart, action = create_topic | create_resource (file upload)
+//   PATCH -> JSON, action = update_progress | toggle_visibility
+// The subject offering, and every class offering / topic / resource id sent in a
+// request, must belong to the caller's school (else 404 / 400).
+// =============================================================================
+
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/api/guard";
+import { badRequest, toErrorResponse } from "@/lib/api/errors";
+import { parse, parseForm } from "@/lib/api/validate";
+import { bumpCache, cached } from "@/lib/cache";
 import {
-  buildSubjectResourcePath,
-  ensureSubjectResourcesBucket,
+  createCurriculumNode,
+  createResource,
+  saveClassProgress,
+  setResourceVisibility,
+} from "@/lib/subjects-mutations";
+import {
+  SUBJECT_CACHE_ENTITY,
+  SUBJECT_COURSEWORK_TTL_SECONDS,
+  SUBJECT_READ_ROLES,
+  SUBJECT_WRITE_ROLES,
   getSchoolSubjectOrThrow,
   getSubjectCourseworkData,
+  requireSubjectId,
 } from "@/lib/subjects-server";
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { requireAuth } from "@/lib/api/guard";
-import { toErrorResponse } from "@/lib/api/errors";
+import {
+  courseworkQuerySchema,
+  createResourceSchema,
+  createTopicSchema,
+  toggleVisibilitySchema,
+  updateProgressSchema,
+} from "@/lib/validation/subjects";
+
+export const dynamic = "force-dynamic";
 
 type Context = {
   params: Promise<{ id: string }>;
 };
 
-type CourseworkPatchBody =
-  | {
-      action: "toggle_visibility";
-      resource_id: string;
-      next_visibility: string;
-      changed_by?: string | null;
-    }
-  | {
-      action: "update_progress";
-      school_subject_class_id: string;
-      current_node_id?: string | null;
-      syllabus_progress_pct?: number | null;
-    };
+const UNSUPPORTED_ACTION = "Unsupported coursework action.";
 
-function asText(value: FormDataEntryValue | null | undefined) {
-  const text = String(value ?? "").trim();
-  return text || null;
-}
-
-function asNumber(value: FormDataEntryValue | null | undefined) {
-  const parsed = Number(asText(value));
-  return Number.isFinite(parsed) ? parsed : null;
-}
-
+/**
+ * Optional query: ?class_offering_id=<classOfferings[].id> returns only that class's
+ * curriculum tree and resources (classOfferings still lists every class).
+ * Response: { ok: true, data: SubjectCourseworkPayload }.
+ */
 export async function GET(request: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(request, { pageKey: "subjects", rateLimit: "read" });
-  } catch (err) { return toErrorResponse(err); }
+    auth = await requireAuth(request, { roles: SUBJECT_READ_ROLES, pageKey: "subjects", rateLimit: "read" });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
-    const { id } = await context.params;
-    const data = await getSubjectCourseworkData(id);
+    const id = requireSubjectId((await context.params).id);
+    const { schoolId } = auth;
+    const query = parse(courseworkQuerySchema, {
+      class_offering_id: request.nextUrl.searchParams.get("class_offering_id"),
+    });
+    const classOfferingId = query.class_offering_id;
+
+    const data = await cached(
+      schoolId,
+      SUBJECT_CACHE_ENTITY,
+      SUBJECT_COURSEWORK_TTL_SECONDS,
+      () => getSubjectCourseworkData(id, schoolId, classOfferingId),
+      `coursework:${id}:${classOfferingId ?? "all"}`,
+    );
     return NextResponse.json({ ok: true, data });
   } catch (error) {
-    console.error("subject coursework route error", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }
 
+/**
+ * Multipart form.
+ *  action=create_topic:    school_subject_class_id, title, node_type?, sort_order?, parent_id?
+ *  action=create_resource: school_subject_class_id, title, resource_type?, visibility?,
+ *                          curriculum_node_id?, short_description?, author_name?,
+ *                          cover_image_url?, source_url?, file?  (a file or a source_url is required)
+ * Response 201: { ok: true, data: SubjectCourseworkPayload }.
+ */
 export async function POST(request: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
-  } catch (err) { return toErrorResponse(err); }
+    auth = await requireAuth(request, {
+      roles: SUBJECT_WRITE_ROLES,
+      pageKey: "subjects",
+      rateLimit: "mutation",
+    });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
-    const { id } = await context.params;
-    const offering = await getSchoolSubjectOrThrow(id);
-    const formData = await request.formData();
-    const action = asText(formData.get("action"));
+    const id = requireSubjectId((await context.params).id);
+    const { schoolId, userId } = auth;
+    const offering = await getSchoolSubjectOrThrow(id, schoolId);
+
+    const form = await request.formData();
+    const action = String(form.get("action") ?? "").trim();
 
     if (action === "create_topic") {
-      const schoolSubjectClassId = asText(formData.get("school_subject_class_id"));
-      const title = asText(formData.get("title"));
-      const parentId = asText(formData.get("parent_id"));
-      const nodeType = asText(formData.get("node_type")) ?? "topic";
-      const sortOrder = asNumber(formData.get("sort_order")) ?? 0;
-
-      if (!schoolSubjectClassId || !title) {
-        return NextResponse.json(
-          { error: "Class offering and topic title are required." },
-          { status: 400 },
-        );
+      const input = parseForm(form, createTopicSchema);
+      if (!input.school_subject_class_id || !input.title) {
+        throw badRequest("Class offering and topic title are required.");
       }
-
-      let depth = 0;
-      if (parentId) {
-        const parentRes = await supabaseAdmin
-          .from("subject_curriculum_nodes")
-          .select("depth")
-          .eq("id", parentId)
-          .maybeSingle();
-        if (parentRes.error) {
-          return NextResponse.json({ error: parentRes.error.message }, { status: 500 });
-        }
-        depth = Number(parentRes.data?.depth ?? 0) + 1;
-      }
-
-      const insertRes = await supabaseAdmin.from("subject_curriculum_nodes").insert({
-        school_subject_class_id: schoolSubjectClassId,
-        parent_id: parentId,
-        title,
-        node_type: nodeType,
-        sort_order: sortOrder,
-        depth,
+      await createCurriculumNode(offering, {
+        ...input,
+        school_subject_class_id: input.school_subject_class_id,
+        title: input.title,
       });
-
-      if (insertRes.error) {
-        return NextResponse.json({ error: insertRes.error.message }, { status: 500 });
-      }
     } else if (action === "create_resource") {
-      const schoolSubjectClassId = asText(formData.get("school_subject_class_id"));
-      const title = asText(formData.get("title"));
-      const resourceType = asText(formData.get("resource_type")) ?? "document";
-      const visibility = asText(formData.get("visibility")) ?? "private";
-      const file = formData.get("file");
-      const sourceUrl = asText(formData.get("source_url"));
-
-      if (!schoolSubjectClassId || !title) {
-        return NextResponse.json(
-          { error: "Class offering and resource title are required." },
-          { status: 400 },
-        );
+      const input = parseForm(form, createResourceSchema);
+      if (!input.school_subject_class_id || !input.title) {
+        throw badRequest("Class offering and resource title are required.");
       }
-
-      const classLinkRes = await supabaseAdmin
-        .from("school_subject_classes")
-        .select("id, class_id")
-        .eq("id", schoolSubjectClassId)
-        .maybeSingle();
-
-      if (classLinkRes.error || !classLinkRes.data) {
-        return NextResponse.json(
-          { error: classLinkRes.error?.message ?? "Class offering not found." },
-          { status: 404 },
-        );
-      }
-
-      let storagePath: string | null = null;
-
-      if (file instanceof File && file.size > 0) {
-        await ensureSubjectResourcesBucket();
-        storagePath = buildSubjectResourcePath({
-          schoolId: offering.school_id,
-          subjectId: offering.subject_id,
-          classId: classLinkRes.data.class_id,
-          filename: file.name,
-        });
-        const uploadRes = await supabaseAdmin.storage
-          .from("subject_resources")
-          .upload(storagePath, await file.arrayBuffer(), {
-            contentType: file.type || "application/octet-stream",
-            upsert: false,
-          });
-
-        if (uploadRes.error) {
-          return NextResponse.json({ error: uploadRes.error.message }, { status: 500 });
-        }
-      }
-
-      const insertRes = await supabaseAdmin.from("subject_resources").insert({
-        school_subject_class_id: schoolSubjectClassId,
-        curriculum_node_id: asText(formData.get("curriculum_node_id")),
-        resource_type: resourceType,
-        title,
-        short_description: asText(formData.get("short_description")),
-        author_name: asText(formData.get("author_name")),
-        cover_image_url: asText(formData.get("cover_image_url")),
-        storage_path: storagePath,
-        source_url: sourceUrl,
-        visibility,
-        uploaded_by: asText(formData.get("uploaded_by")),
-        uploaded_at: new Date().toISOString(),
-      });
-
-      if (insertRes.error) {
-        return NextResponse.json({ error: insertRes.error.message }, { status: 500 });
-      }
+      const upload = form.get("file");
+      await createResource(
+        offering,
+        { ...input, school_subject_class_id: input.school_subject_class_id, title: input.title },
+        upload instanceof File && upload.size > 0 ? upload : null,
+        { schoolId, userId },
+      );
     } else {
-      return NextResponse.json({ error: "Unsupported coursework action." }, { status: 400 });
+      throw badRequest(UNSUPPORTED_ACTION);
     }
 
-    const data = await getSubjectCourseworkData(id);
+    await bumpCache(schoolId, SUBJECT_CACHE_ENTITY);
+    const data = await getSubjectCourseworkData(id, schoolId);
     return NextResponse.json({ ok: true, data }, { status: 201 });
   } catch (error) {
-    console.error("subject coursework create route error", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }
 
+/**
+ * JSON body.
+ *  { action: "update_progress", school_subject_class_id, current_node_id?, syllabus_progress_pct? }
+ *  { action: "toggle_visibility", resource_id, next_visibility: "private" | "public" }
+ * Response: { ok: true, data: SubjectCourseworkPayload }.
+ */
 export async function PATCH(request: NextRequest, context: Context) {
+  let auth;
   try {
-    await requireAuth(request, { roles: ["admin", "super-admin", "manager", "teacher"], rateLimit: "mutation" });
-  } catch (err) { return toErrorResponse(err); }
+    auth = await requireAuth(request, {
+      roles: SUBJECT_WRITE_ROLES,
+      pageKey: "subjects",
+      rateLimit: "mutation",
+    });
+  } catch (err) {
+    return toErrorResponse(err);
+  }
 
   try {
-    const { id } = await context.params;
-    const body = (await request.json()) as CourseworkPatchBody;
+    const id = requireSubjectId((await context.params).id);
+    const { schoolId, userId } = auth;
 
-    if (body.action === "toggle_visibility") {
-      const currentResource = await supabaseAdmin
-        .from("subject_resources")
-        .select("id, visibility")
-        .eq("id", body.resource_id)
-        .maybeSingle();
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      throw badRequest("Request body must be valid JSON.");
+    }
+    const action = typeof (body as { action?: unknown } | null)?.action === "string"
+      ? (body as { action: string }).action
+      : "";
 
-      if (currentResource.error || !currentResource.data) {
-        return NextResponse.json(
-          { error: currentResource.error?.message ?? "Resource not found." },
-          { status: 404 },
-        );
-      }
+    const offering = await getSchoolSubjectOrThrow(id, schoolId);
 
-      const updateRes = await supabaseAdmin
-        .from("subject_resources")
-        .update({ visibility: body.next_visibility })
-        .eq("id", body.resource_id);
-
-      if (updateRes.error) {
-        return NextResponse.json({ error: updateRes.error.message }, { status: 500 });
-      }
-
-      await supabaseAdmin.from("subject_resource_visibility_events").insert({
-        resource_id: body.resource_id,
-        previous_visibility: currentResource.data.visibility,
-        next_visibility: body.next_visibility,
-        changed_by: body.changed_by ?? null,
-      });
+    if (action === "toggle_visibility") {
+      await setResourceVisibility(offering, parse(toggleVisibilitySchema, body), { schoolId, userId });
+    } else if (action === "update_progress") {
+      await saveClassProgress(offering, parse(updateProgressSchema, body));
+    } else {
+      throw badRequest(UNSUPPORTED_ACTION);
     }
 
-    if (body.action === "update_progress") {
-      const upsertRes = await supabaseAdmin.from("subject_class_progress").upsert(
-        {
-          school_subject_class_id: body.school_subject_class_id,
-          current_node_id: body.current_node_id ?? null,
-          syllabus_progress_pct: body.syllabus_progress_pct ?? null,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: "school_subject_class_id" },
-      );
-
-      if (upsertRes.error) {
-        return NextResponse.json({ error: upsertRes.error.message }, { status: 500 });
-      }
-    }
-
-    const data = await getSubjectCourseworkData(id);
+    await bumpCache(schoolId, SUBJECT_CACHE_ENTITY);
+    const data = await getSubjectCourseworkData(id, schoolId);
     return NextResponse.json({ ok: true, data });
   } catch (error) {
-    console.error("subject coursework patch route error", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unexpected server error." },
-      { status: 500 },
-    );
+    return toErrorResponse(error);
   }
 }

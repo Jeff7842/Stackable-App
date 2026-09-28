@@ -44,18 +44,16 @@ export const auth = betterAuth({
           user,
           otp,
         }: {
-          user: { email: string };
+          user: { email: string; name?: string };
           otp: string;
         }) => {
-          // Reuse the existing QStash client — publish to the same OTP email job
-          // that the legacy login route uses (app/api/jobs/send-otp-email).
-          const { qstash } = await import("@/lib/qeue/qstash");
-          await qstash.publishJSON({
-            url: `${process.env.APP_BASE_URL}/api/jobs/send-otp-email`,
-            body: {
-              email: user.email,
-              otp,
-            },
+          // Same queued "send-otp" job the legacy login route uses (lib/qeue/registry.ts).
+          const { enqueueJob } = await import("@/lib/qeue/jobs");
+          await enqueueJob("send-otp", {
+            email: user.email,
+            firstName: user.name || "there",
+            otpCode: otp,
+            purpose: "login",
           });
         },
       },

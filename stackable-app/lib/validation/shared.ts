@@ -33,6 +33,32 @@ export const ROLE_DASHBOARD: Record<Role, "principal" | "teacher" | "student" | 
   parent: "parent",
 };
 
+// Portals = the route groups. "dashboard" is the /dashboard/* school-admin workspace.
+export type Portal = "developer" | "principal" | "dashboard" | "teacher" | "student" | "parent";
+
+// Roles allowed into each portal. A real super-admin may enter developer/principal/dashboard;
+// while impersonating, the session resolves to the target user, so these checks apply to them.
+export const PORTAL_ROLES: Record<Portal, readonly Role[]> = {
+  developer: ["super-admin"],
+  principal: ["admin", "manager", "super-admin"],
+  dashboard: ["admin", "manager", "super-admin"],
+  teacher: ["teacher", "staff"],
+  student: ["student", "pupil"],
+  parent: ["parent"],
+};
+
+// Where each role lands after login, and where a wrong-portal visit is sent back to.
+export const ROLE_HOME: Record<Role, string> = {
+  "super-admin": "/dev",
+  admin: "/admin",
+  manager: "/admin",
+  teacher: "/teach",
+  staff: "/teach",
+  student: "/learn",
+  pupil: "/learn",
+  parent: "/family",
+};
+
 // Account status (users.status CHECK constraint).
 export const USER_STATUSES = ["active", "suspended", "pending"] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];

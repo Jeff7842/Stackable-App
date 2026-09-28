@@ -1,5 +1,12 @@
 "use client";
 
+// Shared confirmation dialog (used through ConfirmationProvider and directly by a
+// few pages). Props and behaviour are unchanged; only the look moved to the
+// dashboard design tokens so it follows light and dark mode.
+
+import { useId } from "react";
+import { Button, type ButtonVariant } from "@/components/ui/Button";
+
 export type ConfirmationTone = "primary" | "danger" | "success" | "warning";
 export type ConfirmationVariant = "confirm" | "success";
 
@@ -17,30 +24,12 @@ export type ConfirmationModalProps = {
   hideCancel?: boolean;
 };
 
-const toneStyles: Record<
-  ConfirmationTone,
-  { icon: string; iconRing: string; confirm: string }
-> = {
-  primary: {
-    icon: "bg-[#FFF4E2] text-[#B56A00]",
-    iconRing: "ring-[#F8D7A0]",
-    confirm: "bg-[#F19F24] text-white hover:bg-[#d88915]",
-  },
-  danger: {
-    icon: "bg-red-50 text-red-600",
-    iconRing: "ring-red-100",
-    confirm: "bg-red-600 text-white hover:bg-red-700",
-  },
-  success: {
-    icon: "bg-emerald-50 text-emerald-600",
-    iconRing: "ring-emerald-100",
-    confirm: "bg-emerald-600 text-white hover:bg-emerald-700",
-  },
-  warning: {
-    icon: "bg-amber-50 text-amber-600",
-    iconRing: "ring-amber-100",
-    confirm: "bg-amber-500 text-white hover:bg-amber-600",
-  },
+// icon = disc colours, ring = soft halo, button = which ui Button variant confirms.
+const toneStyles: Record<ConfirmationTone, { icon: string; iconRing: string; button: ButtonVariant }> = {
+  primary: { icon: "bg-primary-tint text-primary-ink", iconRing: "ring-primary-tint/50", button: "primary" },
+  danger: { icon: "bg-danger-tint text-danger", iconRing: "ring-danger-tint/50", button: "danger" },
+  success: { icon: "bg-success-tint text-success", iconRing: "ring-success-tint/50", button: "primary" },
+  warning: { icon: "bg-warning-tint text-warning", iconRing: "ring-warning-tint/50", button: "accent" },
 };
 
 function Icon({
@@ -119,56 +108,73 @@ export default function ConfirmationModal({
   variant = "confirm",
   hideCancel = false,
 }: ConfirmationModalProps) {
+  const titleId = useId();
+  const messageId = useId();
+
   if (!open) {
     return null;
   }
 
   const selectedTone = variant === "success" ? "success" : tone;
+  const styles = toneStyles[selectedTone];
 
   return (
-    <div className="fixed inset-0 z-[140] flex items-center justify-center p-4">
+    // z-[140] keeps it above drawers (z-90/95) and below nothing else.
+    <div className="ui-portal fixed inset-0 z-[140] flex items-center justify-center p-4">
       <button
         type="button"
         aria-label="Close modal overlay"
+        tabIndex={-1}
         onClick={loading ? undefined : onClose}
-        className="absolute inset-0 bg-slate-900/35 backdrop-blur-[4px]"
+        className="absolute inset-0 animate-fade-in bg-ink/30 backdrop-blur-sm dark:bg-black/60"
       />
 
-      <div className="relative w-full max-w-md overflow-hidden rounded-[30px] border border-gray-100 bg-white shadow-[0_35px_80px_rgba(15,23,42,0.18)]">
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={messageId}
+        className="relative w-full max-w-md animate-fade-up overflow-hidden rounded-2xl bg-surface shadow-pop ring-1 ring-ghost motion-reduce:animate-none"
+      >
         <div className="px-6 pb-6 pt-8 text-center sm:px-7">
           <div className="flex justify-center">
-            <div
-              className={`flex h-16 w-16 items-center justify-center rounded-full ring-8 ${toneStyles[selectedTone].icon} ${toneStyles[selectedTone].iconRing}`}
-            >
+            <div className={`flex size-16 items-center justify-center rounded-full ring-8 ${styles.icon} ${styles.iconRing}`}>
               <Icon variant={variant} tone={selectedTone} />
             </div>
           </div>
 
           <div className="mt-5">
-            <h3 className="text-xl font-bold text-gray-900">{title}</h3>
-            <p className="mt-2 text-sm leading-6 text-gray-600">{message}</p>
+            <h3 id={titleId} className="font-display text-xl font-semibold text-ink">
+              {title}
+            </h3>
+            <p id={messageId} className="mt-2 text-sm leading-6 text-ink-soft">
+              {message}
+            </p>
           </div>
 
           <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
             {!hideCancel && (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={onClose}
                 disabled={loading}
-                className="inline-flex min-w-[140px] items-center justify-center rounded-[16px] border border-gray-200 bg-white px-4 py-3 text-sm font-semibold text-gray-700 transition hover:border-gray-300 hover:text-gray-900 disabled:cursor-not-allowed disabled:opacity-50"
+                // Safe default focus: the non-destructive choice.
+                autoFocus
+                className="min-w-[140px]"
               >
                 {cancelLabel}
-              </button>
+              </Button>
             )}
 
-            <button
-              type="button"
+            <Button
+              variant={styles.button}
               onClick={onConfirm ?? onClose}
               disabled={loading}
-              className={`inline-flex min-w-[140px] items-center justify-center rounded-[16px] px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${toneStyles[selectedTone].confirm}`}
+              autoFocus={hideCancel}
+              className="min-w-[140px]"
             >
               {loading ? "Please wait..." : confirmLabel}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
