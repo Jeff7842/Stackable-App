@@ -592,7 +592,6 @@ model user_sessions {
   revoked_at             DateTime?                @db.Timestamptz(6)
   schools                schools                  @relation(fields: [school_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_sessions_school_fk")
   users                  users                    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "user_sessions_user_fk")
-  impersonation_sessions impersonation_sessions[]
 
   @@index([user_id], map: "idx_user_sessions_user_id")
 }
@@ -680,21 +679,23 @@ model audit_logs {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model impersonation_sessions {
-  id               String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  actor_user_id    String         @db.Uuid
-  actor_session_id String?        @db.Uuid
-  target_user_id   String         @db.Uuid
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actor_user_id    String    @db.Uuid
+  // NOT a FK: holds user_sessions.id (a uuid) on the legacy path, or ba_session.id
+  // (a non-uuid random token) under Better Auth — see guard.ts's resolveContext().
+  // Plain text so either shape fits.
+  actor_session_id String?
+  target_user_id   String    @db.Uuid
   // Only the hash of the random cookie token is stored.
   token_hash       String
   reason           String
-  expires_at       DateTime       @db.Timestamptz(6)
-  ended_at         DateTime?      @db.Timestamptz(6)
-  created_at       DateTime       @default(now()) @db.Timestamptz(6)
-  ip_address       String?        @db.Inet
+  expires_at       DateTime  @db.Timestamptz(6)
+  ended_at         DateTime? @db.Timestamptz(6)
+  created_at       DateTime  @default(now()) @db.Timestamptz(6)
+  ip_address       String?   @db.Inet
   user_agent       String?
-  actor            users          @relation("ImpersonationActor", fields: [actor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "impersonation_sessions_actor_user_fk")
-  actor_session    user_sessions? @relation(fields: [actor_session_id], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "impersonation_sessions_actor_session_fk")
-  target           users          @relation("ImpersonationTarget", fields: [target_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "impersonation_sessions_target_user_fk")
+  actor            users     @relation("ImpersonationActor", fields: [actor_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "impersonation_sessions_actor_user_fk")
+  target           users     @relation("ImpersonationTarget", fields: [target_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "impersonation_sessions_target_user_fk")
 
   @@unique([token_hash], map: "uq_impersonation_sessions_token_hash")
   @@index([actor_user_id], map: "idx_impersonation_sessions_actor_user_id")
