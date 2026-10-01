@@ -19,8 +19,10 @@
 // impersonating" and the request stays the REAL user (the actor), never the
 // target. Nothing here throws into the auth path.
 //
-// LEGACY AUTH ONLY: this works with the `stackable_session` cookie path. The
-// dormant Better Auth branch of resolveSession() is deliberately untouched.
+// Provider-agnostic: guard.ts's resolveContext() calls applyImpersonationIfAny()
+// from BOTH the legacy and Better Auth branches, once it has resolved the real
+// signed-in user's {userId, role, sessionId}. Nothing in this file cares which
+// session mechanism produced that triple.
 // =============================================================================
 
 import { randomBytes } from "node:crypto";

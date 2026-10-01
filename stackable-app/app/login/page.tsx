@@ -9,16 +9,21 @@ import Checkbox from "@/components/auth/Checkbox";
 import { safeNextPath } from "@/lib/api/session";
 import { useToast } from "../../components/toast/ToastProvider";
 import { useRouter } from "next/navigation";
+import { authClient } from "@/lib/auth/client";
+import { ROLE_HOME, type Role } from "@/lib/validation/shared";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// The server no longer hands the browser a userId: the OTP step is tied to a signed cookie.
-type PendingUser = {
-  firstName: string;
-  email: string;
-  maskedEmail: string;
-  mustChangePassword: boolean;
-} | null;
+/** "jeff.kimotho@x.com" -> "je***@x.com". Client-side only — never sent anywhere. */
+function maskEmail(raw: string): string {
+  const [user, domain] = raw.split("@");
+  if (!user || !domain) return raw;
+  const visible = user.slice(0, Math.min(2, user.length));
+  return `${visible}${"*".repeat(Math.max(user.length - visible.length, 1))}@${domain}`;
+}
+
+type TwoFactorMethod = "otp" | "totp";
+type TwoFactorStage = "closed" | "choose" | "otp" | "totp";
 
 function UseOtp(length = 5) {
   const [otp, setOtp] = useState<string[]>(Array(length).fill(""));
@@ -80,34 +85,29 @@ const generatePageKey = () =>
 }
 
 const page = () => {
-  const {
-    otp,
-    inputsRef,
-    handleChange,
-    handleKeyDown,
-    handlePaste,
-    getOtp,
-    resetOtp,
-    generatePageKey,
-  } = UseOtp(5);
+  const emailOtp = UseOtp(5);
+  const totpOtp = UseOtp(6);
 
+  const [twoFactorStage, setTwoFactorStage] = useState<TwoFactorStage>("closed");
+  const [twoFactorMethods, setTwoFactorMethods] = useState<TwoFactorMethod[]>([]);
+  const isOtpOpen = twoFactorStage !== "closed";
+  const activeOtp = twoFactorStage === "totp" ? totpOtp : emailOtp;
 
-  const [isOtpOpen, setIsOtpOpen] = useState(false);
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
   const [isSubmittingOtp, setIsSubmittingOtp] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0); // seconds
 const [resendAttempts, setResendAttempts] = useState(0); // successful resend count
 
 
-  const [pendingUser, setPendingUser] = useState<PendingUser>(null);
-
   const [welcomeName, setWelcomeName] = useState("");
 
   const { showToast } = useToast();
   const handleCloseOtp = () => {
-    resetOtp();
-    setIsOtpOpen(false);
+    emailOtp.resetOtp();
+    totpOtp.resetOtp();
+    setTwoFactorStage("closed");
   };
 
 
@@ -121,6 +121,50 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const emailInvalid = !!fieldErrors.email || authError;
   const passwordInvalid = !!fieldErrors.password || authError;
+
+  /** Everything that happens once Better Auth hands back a real, verified session. */
+  const finishLogin = (user: {
+    name?: string | null;
+    role?: string | null;
+    mustChangePassword?: boolean | null;
+  }) => {
+    setWelcomeName(user.name || "");
+
+    showToast({
+      type: "success",
+      title: "Welcome Back!",
+      description: "You have been successfully logged in.",
+    });
+
+    setTwoFactorStage("closed");
+    emailOtp.resetOtp();
+    totpOtp.resetOtp();
+
+    // Step 1: Loader
+    setPageKey(emailOtp.generatePageKey());
+    setIsAuthTransitioning(true);
+
+    // Step 2: Welcome screen
+    setTimeout(() => {
+      setShowWelcome(true);
+    }, 1800);
+
+    // Step 3: Redirect to the dashboard for this user's role. The proxy sends signed-out visitors
+    // here as /login?next=<page>. Honour it only if it is a safe same-origin path (open-redirect
+    // guard), and never over a forced password change.
+    const wanted = user.mustChangePassword
+      ? null
+      : safeNextPath(new URLSearchParams(window.location.search).get("next"));
+    const redirectTo: string =
+      wanted ??
+      (user.mustChangePassword
+        ? `/forgot-password?reason=change&email=${encodeURIComponent(email)}`
+        : ROLE_HOME[user.role as Role]) ??
+      "/login";
+    setTimeout(() => {
+      router.replace(redirectTo);
+    }, 2500);
+  };
 
   const handleContinue = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -142,38 +186,41 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
       setAuthError(false);
       setFieldErrors({});
 
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
+      // The two-factor plugin injects twoFactorRedirect/twoFactorMethods onto a
+      // successful response when 2FA is required; better-auth's client types don't
+      // reflect that plugin-added shape, so it's read via this widened type.
+      const { data, error } = (await authClient.signIn.email({
+        email: email.trim(),
+        password,
+        rememberMe: remember,
+      })) as {
+        data:
+          | ({ twoFactorRedirect?: boolean; twoFactorMethods?: string[] } & Record<string, unknown>)
+          | null;
+        error: { status?: number; message?: string } | null;
+      };
 
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
+      if (error) {
         // Red inputs + a toast with the server's real reason (bad password, inactive account, rate limit...).
-        setAuthError(res.status === 401);
+        setAuthError(error.status === 401);
         showToast({
           type: "error",
-          title: res.status === 401 ? "Sign in failed" : "Couldn't sign you in",
-          description: data?.error || "Login failed. Please try again.",
+          title: error.status === 401 ? "Sign in failed" : "Couldn't sign you in",
+          description: error.message || "Login failed. Please try again.",
         });
         return;
       }
 
-      setPendingUser({
-        firstName: data.firstName,
-        email: data.email,
-        maskedEmail: data.maskedEmail,
-        mustChangePassword: data.mustChangePassword,
-      });
+      if (!data) return;
 
-      setIsOtpOpen(true);
-      showToast({
-        type: "success",
-        title: "OTP sent",
-        description: `We sent a verification code to ${data.maskedEmail}.`,
-      });
+      if (data.twoFactorRedirect) {
+        setTwoFactorMethods((data.twoFactorMethods ?? []) as TwoFactorMethod[]);
+        setTwoFactorStage("choose");
+        return;
+      }
+
+      // No 2FA on this account (shouldn't happen for a migrated user, but don't strand them here).
+      finishLogin(data.user as { name?: string; role?: string; mustChangePassword?: boolean });
     } catch (error) {
       showToast({
         type: "error",
@@ -185,157 +232,136 @@ const [resendAttempts, setResendAttempts] = useState(0); // successful resend co
     }
   };
 
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-  e.preventDefault();
-
-  const otpValue = getOtp();
-
-  if (!pendingUser) {
-    showToast({
-      type: "error",
-      title: "Session lost",
-      description: "Please sign in again.",
-    });
-    setIsOtpOpen(false);
-    return;
-  }
-
-  if (otpValue.length !== 5) {
-    showToast({
-      type: "error",
-      title: "Enter the full code",
-      description: "Type all 5 digits of the code we sent you.",
-    });
-    return;
-  }
-
-  try {
-    setIsSubmittingOtp(true);
-
-    // No userId: the server knows which code this is from the signed cookie set at sign-in.
-    const res = await fetch("/api/auth/verify-otp", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ otp: otpValue, remember }),
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    if (!res.ok) {
+  const chooseEmailMethod = async () => {
+    setTwoFactorStage("otp");
+    try {
+      setIsSendingOtp(true);
+      const { error } = await authClient.twoFactor.sendOtp();
+      if (error) {
+        showToast({
+          type: "error",
+          title: "Couldn't send code",
+          description: error.message || "Please try again.",
+        });
+        return;
+      }
+      showToast({
+        type: "success",
+        title: "Code sent",
+        description: `We sent a verification code to ${maskEmail(email)}.`,
+      });
+    } catch {
       showToast({
         type: "error",
-        title: "Verification failed",
-        description: data?.error || "Invalid or expired OTP.",
+        title: "Couldn't send code",
+        description: "Something went wrong. Please try again.",
       });
-      // Out of attempts, or the code/session expired: back to the password step.
-      if (data?.attemptsLeft === 0 || (res.status === 401 && /sign in again/i.test(data?.error ?? ""))) {
-        setIsOtpOpen(false);
-        resetOtp();
-      }
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const chooseTotpMethod = () => {
+    setTwoFactorStage("totp");
+  };
+
+  const handleVerifyTwoFactor = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const isTotp = twoFactorStage === "totp";
+    const codeValue = activeOtp.getOtp();
+    const expectedLength = isTotp ? 6 : 5;
+
+    if (codeValue.length !== expectedLength) {
+      showToast({
+        type: "error",
+        title: "Enter the full code",
+        description: `Type all ${expectedLength} digits of the code.`,
+      });
       return;
     }
 
-    setWelcomeName(data?.user?.firstName || pendingUser.firstName);
-
-    showToast({
-      type: "success",
-      title: "Welcome Back!",
-      description: "You have been successfully logged in.",
-    });
-
-    setIsOtpOpen(false);
-    resetOtp();
-
-    // Step 1: Loader
-    setPageKey(generatePageKey());
-    setIsAuthTransitioning(true);
-
-    // Step 2: Welcome screen
-    setTimeout(() => {
-      setShowWelcome(true);
-    }, 1800);
-
-    // Step 3: Redirect to the dashboard for this user's role (the server decides where).
-    // The proxy sends signed-out visitors here as /login?next=<page>. Honour it only if it is a safe
-    // same-origin path (open-redirect guard), and never over a forced password change.
-    const wanted = data?.user?.mustChangePassword
-      ? null
-      : safeNextPath(new URLSearchParams(window.location.search).get("next"));
-    const redirectTo: string = wanted ?? data?.redirectTo ?? "/login";
-    setTimeout(() => {
-      router.replace(redirectTo);
-    }, 2500);
-  } catch (error) {
-    showToast({
-      type: "error",
-      title: "Verification failed",
-      description: "Something went wrong while verifying your OTP.",
-    });
-  } finally {
-    setIsSubmittingOtp(false);
-  }
-};
-
-  const handleResendOtp = async () => {
-    if (!pendingUser) return;
-
-     if (isResendingOtp || resendCooldown > 0) return;
-
-    if (resendAttempts >= 5) {
-    showToast({
-      type: "error",
-      title: "Too many resend attempts",
-      description:
-        "This looks like a serious issue. Please contact your provider for assistance.",
-    });
-    return;
-  }
-
     try {
-      setIsResendingOtp(true);
-      const res = await fetch("/api/auth/resend-otp", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}), // the signed cookie identifies the code
-      });
+      setIsSubmittingOtp(true);
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
+      const { data, error } = isTotp
+        ? await authClient.twoFactor.verifyTotp({ code: codeValue, trustDevice: remember })
+        : await authClient.twoFactor.verifyOtp({ code: codeValue, trustDevice: remember });
+
+      if (error) {
         showToast({
           type: "error",
-          title: "Resend failed",
-          description: data?.error || "Could not resend OTP.",
+          title: "Verification failed",
+          description: error.message || "Invalid or expired code.",
         });
-        // The server enforces the wait; mirror it on the button.
-        if (res.status === 429 && typeof data?.retryAfter === "number") setResendCooldown(data.retryAfter);
-        if (res.status === 401) {
-          setIsOtpOpen(false);
-          resetOtp();
+        // Challenge/session expired: back to the password step.
+        if (error.status === 401) {
+          setTwoFactorStage("closed");
+          activeOtp.resetOtp();
         }
         return;
       }
 
-      resetOtp();
+      finishLogin(data.user as { name?: string; role?: string; mustChangePassword?: boolean });
+    } catch (error) {
+      showToast({
+        type: "error",
+        title: "Verification failed",
+        description: "Something went wrong while verifying your code.",
+      });
+    } finally {
+      setIsSubmittingOtp(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (isResendingOtp || resendCooldown > 0) return;
+
+    if (resendAttempts >= 5) {
+      showToast({
+        type: "error",
+        title: "Too many resend attempts",
+        description:
+          "This looks like a serious issue. Please contact your provider for assistance.",
+      });
+      return;
+    }
+
+    try {
+      setIsResendingOtp(true);
+      const { error } = await authClient.twoFactor.sendOtp();
+
+      if (error) {
+        showToast({
+          type: "error",
+          title: "Resend failed",
+          description: error.message || "Could not resend the code.",
+        });
+        if (error.status === 401) {
+          setTwoFactorStage("closed");
+          emailOtp.resetOtp();
+        }
+        return;
+      }
+
+      emailOtp.resetOtp();
 
       const nextAttempts = resendAttempts + 1;
-    setResendAttempts(nextAttempts);
+      setResendAttempts(nextAttempts);
 
-    // First successful resend = 30s
-    // Second successful resend = 60s
-    // Then keep increasing by 30s
-    const nextCooldown = nextAttempts * 30;
-    setResendCooldown(nextCooldown);
+      // First successful resend = 30s, second = 60s, then +30s each time.
+      setResendCooldown(nextAttempts * 30);
 
       showToast({
         type: "success",
-        title: "OTP Resent",
-        description: `A new code has been sent to ${data.maskedEmail}.`,
+        title: "Code resent",
+        description: `A new code has been sent to ${maskEmail(email)}.`,
       });
     } catch (error) {
       showToast({
         type: "error",
         title: "Resend failed",
-        description: "Something went wrong while resending your OTP.",
+        description: "Something went wrong while resending your code.",
       });
     } finally {
       setIsResendingOtp(false);
@@ -404,16 +430,16 @@ const [showWelcome, setShowWelcome] = useState(false);
 
 // mock user – later replace from API / JWT
 const firstName = "User";
-const [pageKey, setPageKey] = useState(() => generatePageKey());
+const [pageKey, setPageKey] = useState(() => emailOtp.generatePageKey());
 
 
 useEffect(() => {
-  if (!isOtpOpen) return;
+  if (twoFactorStage !== "otp") return;
 
-  // Initial cooldown when OTP modal opens
+  // Initial cooldown when the email-code step opens
   setResendCooldown(15);
   setResendAttempts(0);
-}, [isOtpOpen]);
+}, [twoFactorStage]);
 
 useEffect(() => {
   if (resendCooldown <= 0) return;
@@ -620,6 +646,7 @@ const formatCooldown = (seconds: number) => {
             {/* Google button */}
             <button
               type="button"
+              onClick={() => authClient.signIn.social({ provider: "google" })}
               className="flex w-full h-[40px] items-center cursor-pointer justify-center gap-3 rounded-lg border border-gray-300 py-2 hover:bg-black hover:text-white active:bg-black active:text-[#ebebebf1]  hover:scale-[1.02] active:scale-[1.0]  transition duration-300 ">
               <Icon icon="logos:google-icon" width="20" height="20" />
               <span className="text-sm font-header font-medium">
@@ -675,64 +702,127 @@ const formatCooldown = (seconds: number) => {
                 </svg>
               </button>
 
+              {twoFactorStage === "choose" ? (
+                <div className="space-y-6">
+                  <div className="text-center">
+                    <h2 className="text-2xl font-bold text-[#F9B233]">
+                      Verify it&apos;s you
+                    </h2>
+                    <p className="mt-2 text-sm text-gray-600">
+                      Choose how you&apos;d like to receive your code
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {twoFactorMethods.includes("totp") && (
+                      <button
+                        type="button"
+                        onClick={chooseTotpMethod}
+                        className="flex w-full items-center gap-4 rounded-xl border-2 border-[#326B3F]/20 bg-[#326B3F]/5 p-4 text-left
+                          hover:border-[#326B3F] hover:bg-[#326B3F]/10 hover:scale-[1.01] active:scale-[1] transition duration-200 cursor-pointer"
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#326B3F] text-white">
+                          <Icon icon="lucide:shield-check" width="22" height="22" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-[#1D3D28]">Authenticator app</p>
+                          <p className="text-xs text-gray-500">
+                            Enter the 6-digit code from your authenticator app
+                          </p>
+                        </div>
+                      </button>
+                    )}
+
+                    {twoFactorMethods.includes("otp") && (
+                      <button
+                        type="button"
+                        onClick={chooseEmailMethod}
+                        disabled={isSendingOtp}
+                        className="flex w-full items-center gap-4 rounded-xl border-2 border-[#F9B233]/25 bg-[#FFF4C2]/40 p-4 text-left
+                          hover:border-[#F9B233] hover:bg-[#FFF4C2] hover:scale-[1.01] active:scale-[1] transition duration-200 cursor-pointer disabled:opacity-60"
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#F9B233] text-white">
+                          <Icon icon="lucide:mail" width="22" height="22" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-[#1D3D28]">Email code</p>
+                          <p className="text-xs text-gray-500">
+                            Send a 5-digit code to {maskEmail(email)}
+                          </p>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : (
               <form
-              
-                onSubmit={handleVerifyOtp}
+                onSubmit={handleVerifyTwoFactor}
                 className="space-y-6"
               >
                 {/* Icon */}
                 <div className="flex justify-center">
-                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#FFF4C2]">
-                    <svg
-                      className="h-10 w-10 text-[#F9B233]"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M7 9h5m3 0h2M7 12h2m3 0h5M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-6.616a1 1 0 0 0-.67.257l-2.88 2.592A.5.5 0 0 1 8 18.477V17a1 1 0 0 0-1-1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
-                      />
-                    </svg>
+                  <div
+                    className={`flex h-20 w-20 items-center justify-center rounded-full ${
+                      twoFactorStage === "totp" ? "bg-[#326B3F]/10" : "bg-[#FFF4C2]"
+                    }`}
+                  >
+                    {twoFactorStage === "totp" ? (
+                      <Icon icon="lucide:shield-check" width="40" height="40" className="text-[#326B3F]" />
+                    ) : (
+                      <svg
+                        className="h-10 w-10 text-[#F9B233]"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M7 9h5m3 0h2M7 12h2m3 0h5M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1h-6.616a1 1 0 0 0-.67.257l-2.88 2.592A.5.5 0 0 1 8 18.477V17a1 1 0 0 0-1-1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"
+                        />
+                      </svg>
+                    )}
                   </div>
                 </div>
 
                 {/* Text */}
                 <div className="text-center">
-                  <h2 className="text-2xl font-bold text-[#F9B233]">
+                  <h2 className={`text-2xl font-bold ${twoFactorStage === "totp" ? "text-[#326B3F]" : "text-[#F9B233]"}`}>
                     Enter verification code
                   </h2>
                   <p className="mt-2 text-sm text-gray-600">
-                    Enter the 5-digit code sent to your email
+                    {twoFactorStage === "totp"
+                      ? "Enter the 6-digit code from your authenticator app"
+                      : `Enter the 5-digit code sent to ${maskEmail(email)}`}
                   </p>
                 </div>
 
                 {/* OTP Inputs */}
                 <div
                   className="flex justify-center gap-3"
-                  onPaste={handlePaste}
+                  onPaste={activeOtp.handlePaste}
                 >
-                  {otp.map((digit: string, index: number) => (
+                  {activeOtp.otp.map((digit: string, index: number) => (
                     <input
                       key={index}
                       ref={(el) => {
-                        if (el) inputsRef.current[index] = el;
+                        if (el) activeOtp.inputsRef.current[index] = el;
                       }}
                       type="text"
                       inputMode="numeric"
                       maxLength={1}
                       value={digit}
-                      onChange={(e) => handleChange(e.target.value, index)}
-                      onKeyDown={(e) => handleKeyDown(e, index)}
+                      onChange={(e) => activeOtp.handleChange(e.target.value, index)}
+                      onKeyDown={(e) => activeOtp.handleKeyDown(e, index)}
                       className="h-14 w-14 rounded-xl border border-gray-300 text-center text-2xl font-semibold
                   focus:ring-1 focus:ring-[#f9ce33] focus:outline-[#ffed65be] focus:outline-2 focus:outline-offset-2 "
                     />
                   ))}
                 </div>
 
-                {/* Resend */}
+                {/* Resend (email code only — an authenticator app needs no resend) */}
+                {twoFactorStage === "otp" && (
                 <p className="text-center text-sm text-gray-500">
   Didn’t get it?{" "}
 
@@ -766,16 +856,19 @@ const formatCooldown = (seconds: number) => {
     </button>
   )}
 </p>
+                )}
 
                 {/* Button */}
                 <button
                   type="submit"
                   disabled={isSubmittingOtp}
-                  className="w-full rounded-xl bg-[#FFF4C2] py-3 text-lg font-medium text-black
-                   hover:bg-[#F9E38C] hover:scale-[1.02] transform
-    transition-transform duration-200 active:bg-[#ffefae] active:scale-[1] active:text-[#7D6939]"
+                  className={`w-full rounded-xl py-3 text-lg font-medium transform transition-transform duration-200 hover:scale-[1.02] active:scale-[1] ${
+                    twoFactorStage === "totp"
+                      ? "bg-[#326B3F] text-white hover:bg-[#2a5934] active:bg-[#1f4527]"
+                      : "bg-[#FFF4C2] text-black hover:bg-[#F9E38C] active:bg-[#ffefae] active:text-[#7D6939]"
+                  }`}
                 >
-                  {isSubmittingOtp ? <> 
+                  {isSubmittingOtp ? <>
       <span className="relative flex items-center align-middle text-center justify-center w-full h-5">
   <span className="relative w-5 h-5">
     <span
@@ -789,9 +882,10 @@ const formatCooldown = (seconds: number) => {
     <span className="absolute inset-0 rounded-full bg-gradient-to-tr from-[#383838]/10 via-transparent to-[#383838]/5 animate-pulse blur-[2px]" />
   </span>
 </span>
-</> : "Verify OTP"}
+</> : "Verify code"}
                 </button>
               </form>
+              )}
             </div>
           </div>
         </>
@@ -821,7 +915,7 @@ const formatCooldown = (seconds: number) => {
   <div className="fixed inset-0 z-110 flex items-center text-center justify-center bg-[#F7F9E2] h-[100vh] w-full">
     <h1 className="text-[64px] font-bold text-black">
       Welcome back{" "}
-      <span className="text-[#30693E]">{welcomeName || pendingUser?.firstName || "User"}!</span>
+      <span className="text-[#30693E]">{welcomeName || "User"}!</span>
     </h1>
   </div>
 )}

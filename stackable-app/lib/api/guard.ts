@@ -20,6 +20,8 @@
 // `stackable_impersonation` cookie, resolveSession() returns the TARGET user's context
 // plus `impersonatedBy`. All the rules live in lib/api/impersonation.ts. It only ever
 // grants access after every check passes; any error falls back to the real user.
+// Works identically on both AUTH_PROVIDER paths — applyImpersonationIfAny() is the one
+// shared tail each branch calls once it knows who the REAL signed-in user is.
 // =============================================================================
 
 import { cookies } from "next/headers";
@@ -46,7 +48,7 @@ export type AuthContext = {
   schoolId: string;
   schoolCode: string;
   role: Role;
-  /** The REAL user_sessions.id of the signed-in browser (legacy path only). */
+  /** The REAL session row id (user_sessions.id, or ba_session.id under Better Auth). */
   sessionId?: string;
   /**
    * Set only while a real super-admin is viewing as this user. The context above is then the
@@ -70,6 +72,42 @@ export type RequireAuthOptions = {
 };
 
 /**
+ * Given the REAL signed-in user's context (never a target's), apply an active
+ * impersonation cookie if one exists and every check passes. Shared by both
+ * AUTH_PROVIDER branches below — impersonation itself is provider-agnostic,
+ * it only needs {userId, role, sessionId} of whoever is really signed in.
+ */
+async function applyImpersonationIfAny(
+  real: AuthContext,
+  applyImpersonation: boolean,
+  actorName: string,
+): Promise<AuthContext> {
+  if (!applyImpersonation) return real;
+
+  // The common case (no cookie) does no extra work. resolveImpersonation() also checks the
+  // REAL role before it reads any impersonation table, and never throws: on any failure it
+  // returns null and the request stays the real user, never the target.
+  const store = await cookies();
+  const impersonationCookie = store.get(IMPERSONATION_COOKIE)?.value;
+  if (!impersonationCookie) return real;
+
+  const resolved = await resolveImpersonation(
+    { userId: real.userId, role: real.role, sessionId: real.sessionId, name: actorName },
+    impersonationCookie,
+  );
+  if (!resolved) return real;
+
+  return {
+    userId: resolved.identity.userId,
+    schoolId: resolved.identity.schoolId,
+    schoolCode: resolved.identity.schoolCode,
+    role: resolved.identity.role,
+    sessionId: real.sessionId, // always the REAL session, never the target's
+    impersonatedBy: resolved.impersonatedBy,
+  };
+}
+
+/**
  * One implementation of "who is this request?", shared by resolveSession() and
  * resolveRealSession(). Only `applyImpersonation` differs between them.
  */
@@ -77,27 +115,29 @@ async function resolveContext(applyImpersonation: boolean): Promise<AuthContext 
   // ── Better Auth path (Step 7 flip) ──────────────────────────────────────────
   // When AUTH_PROVIDER=betterauth, delegate entirely to Better Auth's session.
   // The legacy cookie path below is skipped.
-  // NOTE: impersonation is LEGACY-PATH ONLY; this branch never impersonates.
   if (process.env.AUTH_PROVIDER === "betterauth") {
     const { auth } = await import("@/lib/auth/auth");
     const { headers } = await import("next/headers");
     const session = await auth.api.getSession({ headers: await headers() });
     if (!session?.user) return null;
-    // Better Auth user carries our custom fields (schoolId, role, status).
+    // Better Auth user carries our custom fields (schoolId, role, schoolCode, status).
     const u = session.user as {
       schoolId?: string;
       role?: string;
-      school_code?: string;
+      schoolCode?: string;
       status?: string;
+      name?: string;
     };
     // Block suspended / pending accounts the same way the legacy path does.
     if (u.status !== undefined && u.status !== "active") return null;
-    return {
+    const real: AuthContext = {
       userId: session.user.id,
       schoolId: u.schoolId ?? "",
-      schoolCode: u.school_code ?? "",
-      role: (u.role ?? "") as import("@/lib/validation/shared").Role,
+      schoolCode: u.schoolCode ?? "",
+      role: (u.role ?? "") as Role,
+      sessionId: session.session.id,
     };
+    return applyImpersonationIfAny(real, applyImpersonation, u.name || "Developer");
   }
   // ── Legacy path (default) ────────────────────────────────────────────────────
   const store = await cookies();
@@ -123,29 +163,8 @@ async function resolveContext(applyImpersonation: boolean): Promise<AuthContext 
     sessionId: session.id,
   };
 
-  if (!applyImpersonation) return real;
-
-  // The common case (no cookie) does no extra work. resolveImpersonation() also checks the
-  // REAL role before it reads any impersonation table, and never throws: on any failure it
-  // returns null and the request stays the real user, never the target.
-  const impersonationCookie = store.get(IMPERSONATION_COOKIE)?.value;
-  if (!impersonationCookie) return real;
-
   const actorName = [u.first_name, u.last_name].filter(Boolean).join(" ").trim() || "Developer";
-  const resolved = await resolveImpersonation(
-    { userId: real.userId, role: real.role, sessionId: real.sessionId, name: actorName },
-    impersonationCookie,
-  );
-  if (!resolved) return real;
-
-  return {
-    userId: resolved.identity.userId,
-    schoolId: resolved.identity.schoolId,
-    schoolCode: resolved.identity.schoolCode,
-    role: resolved.identity.role,
-    sessionId: real.sessionId, // always the REAL session, never the target's
-    impersonatedBy: resolved.impersonatedBy,
-  };
+  return applyImpersonationIfAny(real, applyImpersonation, actorName);
 }
 
 /**

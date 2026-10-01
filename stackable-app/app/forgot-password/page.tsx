@@ -9,6 +9,7 @@ import PinInput from "@/components/auth/PinInput";
 import { PasswordRequirements, PasswordStrengthBar } from "@/components/auth/PasswordStrength";
 import { useToast } from "@/components/toast/ToastProvider";
 import { PASSWORD_RULES } from "@/lib/validation/auth";
+import { authClient } from "@/lib/auth/client";
 
 type Step = "email" | "code" | "password";
 
@@ -47,7 +48,7 @@ function ForgotPasswordFlow() {
   const [codeError, setCodeError] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  const [resetToken, setResetToken] = useState("");
+  const [verifiedCode, setVerifiedCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPw, setShowPw] = useState(false);
@@ -69,14 +70,9 @@ function ForgotPasswordFlow() {
 
     setSending(true);
     try {
-      const res = await fetch("/api/auth/forgot-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: value }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showToast({ type: "error", title: "Couldn't send the code", description: data?.error || "Please try again." });
+      const { error } = await authClient.emailOtp.requestPasswordReset({ email: value });
+      if (error) {
+        showToast({ type: "error", title: "Couldn't send the code", description: error.message || "Please try again." });
         return;
       }
       setEmail(value);
@@ -100,15 +96,14 @@ function ForgotPasswordFlow() {
     if (verifying) return;
     setVerifying(true);
     try {
-      const res = await fetch("/api/auth/verify-reset-code", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
+      const { error } = await authClient.emailOtp.checkVerificationOtp({
+        email,
+        otp: code,
+        type: "forget-password",
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data?.resetToken) {
+      if (error) {
         setCodeError(true);
-        showToast({ type: "error", title: "Wrong code", description: data?.error || "That code is not right." });
+        showToast({ type: "error", title: "Wrong code", description: error.message || "That code is not right." });
         // Let the shake play, then clear the boxes and refocus the first one.
         setTimeout(() => {
           setCodeError(false);
@@ -116,7 +111,8 @@ function ForgotPasswordFlow() {
         }, 700);
         return;
       }
-      setResetToken(data.resetToken);
+      // Not consumed by the check — resend/reset below reuse this same code.
+      setVerifiedCode(code);
       setStep("password");
     } catch {
       showToast({ type: "error", title: "Couldn't check the code", description: "Something went wrong. Please try again." });
@@ -136,19 +132,18 @@ function ForgotPasswordFlow() {
     if (!allRulesMet || !matches || saving) return;
     setSaving(true);
     try {
-      const res = await fetch("/api/auth/reset-password", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: resetToken, newPassword: password, confirmPassword: confirm }),
+      const { error } = await authClient.emailOtp.resetPassword({
+        email,
+        otp: verifiedCode,
+        password,
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        showToast({ type: "error", title: "Password not changed", description: data?.error || "Please try again." });
-        if (res.status === 401) {
-          // The reset session ran out - start over.
+      if (error) {
+        showToast({ type: "error", title: "Password not changed", description: error.message || "Please try again." });
+        if (error.status === 401) {
+          // The code expired between steps - start over.
           setPassword("");
           setConfirm("");
-          setResetToken("");
+          setVerifiedCode("");
           setStep("email");
         }
         return;

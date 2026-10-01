@@ -21,7 +21,9 @@ const BACKEND_LABEL: Record<string, string> = {
 };
 
 const AUTH_LABEL: Record<string, string> = {
-  legacy: "Legacy (Supabase sessions)",
+  // Despite the old label, this was never Supabase — it's a custom cookie/OTP
+  // session validated against Postgres (Neon) via Prisma.
+  legacy: "Legacy (Prisma/Neon sessions)",
   betterauth: "Better Auth",
 };
 
