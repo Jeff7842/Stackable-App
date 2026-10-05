@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
+import { useMe } from "@/hooks/useMe";
 import { PORTAL_LABEL, findNavItem, notificationsHref, prettifySegment } from "@/lib/nav";
 import type { Portal } from "@/lib/validation/shared";
 import { QuickSearch } from "@/components/dashboard/QuickSearch";
@@ -32,7 +33,7 @@ type NavbarProps = {
 /** Page title: deepest matching menu row, else the last URL segment, else the portal name. */
 function usePageTitle(portal: Portal): string {
   const pathname = usePathname();
-  const item = findNavItem(portal, pathname);
+  const item = findNavItem(portal, pathname, useMe().data?.role);
   if (item) return item.title;
   const last = pathname.split("/").filter(Boolean).pop() ?? "";
   return prettifySegment(last) || PORTAL_LABEL[portal];
@@ -42,7 +43,7 @@ export default function Navbar({ portal }: NavbarProps) {
   const title = usePageTitle(portal);
   const scrolled = useScrolled();
   const { count } = useUnreadCount();
-  const bellHref = notificationsHref(portal);
+  const bellHref = notificationsHref(portal, useMe().data?.role);
   const [profileOpen, setProfileOpen] = useState(false);
   const [mobileSearch, setMobileSearch] = useState(false);
 

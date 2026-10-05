@@ -10,6 +10,7 @@ import Acumin from 'next/font/local';
 import { ToastProvider } from "../components/toast/ToastProvider";
 import { ConfirmationProvider } from "../components/confirmation/ConfirmationProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
+import { DemoProvider } from "@/components/demo/DemoProvider";
 import { PostHogProvider } from "@/components/providers/PostHogProvider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type { ThemeProviderProps } from "next-themes";
@@ -128,11 +129,13 @@ export default function RootLayout({
         className={`${geistSans.variable} ${openSans.variable} ${geistMono.variable} ${Abeezee.variable} ${inter.variable} ${poppins.variable} ${acumin.variable} ${plusJakartaSans.variable} ${manrope.variable} ${spaceGrotesk.variable} antialiased `}>
         <PostHogProvider>
           <ThemeProvider>
-            <QueryProvider>
-              <ConfirmationProvider>
-                <ToastProvider>{children}</ToastProvider>
-              </ConfirmationProvider>
-            </QueryProvider>
+            <DemoProvider>
+              <QueryProvider>
+                <ConfirmationProvider>
+                  <ToastProvider>{children}</ToastProvider>
+                </ConfirmationProvider>
+              </QueryProvider>
+            </DemoProvider>
           </ThemeProvider>
         </PostHogProvider>
 

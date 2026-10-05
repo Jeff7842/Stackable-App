@@ -17,6 +17,10 @@ export const ROLE_LABEL: Record<Role, string> = {
   student: "Student",
   pupil: "Pupil",
   staff: "Staff",
+  "dept-head": "Department head",
+  finance: "Finance",
+  secretary: "Secretary",
+  driver: "Driver",
 };
 
 export const STATUS_LABEL: Record<UserStatus, string> = {

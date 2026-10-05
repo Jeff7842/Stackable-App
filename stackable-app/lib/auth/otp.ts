@@ -10,8 +10,7 @@
 // =============================================================================
 
 import crypto from "crypto";
-import { ApiError } from "@/lib/api/errors";
-import { enforceRateLimit } from "@/lib/api/ratelimit";
+import { rateLimitOrSkip } from "@/lib/api/ratelimit";
 
 export const OTP_TTL_MS = 10 * 60 * 1000;
 export const MAX_OTP_ATTEMPTS = 5;
@@ -74,14 +73,9 @@ export function challengeCookieOptions(maxAgeMs = OTP_TTL_MS) {
 }
 
 /**
- * Redis rate limit for anonymous auth actions. Throws a 429 ApiError when over the
- * limit; if Redis isn't configured yet it does nothing (the per-code attempt limits
- * in the database still apply).
+ * Redis rate limit for anonymous auth actions. Throws 429 when over the limit and
+ * 503 in production if Redis is down; outside production an outage is skipped.
  */
 export async function authLimit(identifier: string): Promise<void> {
-  try {
-    await enforceRateLimit("auth", identifier);
-  } catch (err) {
-    if (err instanceof ApiError) throw err;
-  }
+  await rateLimitOrSkip("auth", identifier);
 }

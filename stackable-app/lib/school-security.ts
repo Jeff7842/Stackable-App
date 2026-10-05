@@ -35,12 +35,9 @@ export const SCHOOL_SECURITY_CODE_LABELS: SchoolSecurityCodeLabel[] = [
 ];
 
 function getSchoolSecret() {
-  return (
-    process.env.SCHOOL_SECURITY_CODES_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXTAUTH_SECRET ||
-    "stackable-school-security-secret"
-  );
+  const secret = process.env.SCHOOL_SECURITY_CODES_SECRET;
+  if (!secret) throw new Error("SCHOOL_SECURITY_CODES_SECRET is not set.");
+  return secret;
 }
 
 function base64UrlEncode(value: string) {

@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
-export default function homeworkPage() {
-    return (
-        <div>
-            <h1>Homework</h1>
-        </div>
-    );
+export default function HomeworkPage() {
+  return (
+    <ComingSoon
+      title="Homework"
+      description="Assignments across classes and their review status."
+      icon="solar:notebook-linear"
+    />
+  );
 }

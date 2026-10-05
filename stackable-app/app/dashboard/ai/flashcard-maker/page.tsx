@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
-export default function flashcardMaker() {
-    return (
-        <div>
-            <h1>Flashcard Maker</h1>
-        </div>
-    );
+export default function AIFlashcardMakerPage() {
+  return (
+    <ComingSoon
+      title="AI flashcard maker"
+      description="Turn notes into flashcards for revision."
+      icon="solar:magic-stick-3-linear"
+    />
+  );
 }

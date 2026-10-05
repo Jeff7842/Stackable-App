@@ -260,14 +260,14 @@ model schools {
   created_at                                           DateTime                      @default(now()) @db.Timestamptz(6)
   name                                                 String                        @unique
   code                                                 String                        @unique @default("")
-  status                                               String                        @default("'pending::text'")
+  status                                               String                        @default("pending")
   updated_at                                           DateTime                      @default(now()) @db.Timestamptz(6)
   location                                             String?
   email                                                String?
   phone_1                                              BigInt
   phone_2                                              BigInt?
   phone_3                                              BigInt?
-  id                                                   String                        @unique @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                                                   String                        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   // Was DB function generate_school_id() in Supabase. Neon has no such function,
   // so the app (school repository) now generates this human-facing school code.
   school_id                                            BigInt
@@ -305,7 +305,6 @@ model schools {
   user_sessions                                        user_sessions[]
   users                                                users[]
 
-  @@id([id, created_at, code, no, school_id])
   @@index([subscription_expires_at], map: "idx_schools_subscription_expires_at")
   @@index([subscription_package], map: "idx_schools_subscription_package")
   @@index([subscription_status], map: "idx_schools_subscription_status")
@@ -377,8 +376,8 @@ model students {
   other_info                            String?
   status                                String                        @default("active")
   created_at                            DateTime                      @default(now()) @db.Timestamptz(6)
-  first_name                            String?                       @default("NULL")
-  last_name                             String                        @default("NULL")
+  first_name                            String?
+  last_name                             String
   class_teacher_id                      String?                       @db.Uuid
   schools_students_school_nameToschools schools                       @relation("students_school_nameToschools", fields: [school_name], references: [name], onDelete: Cascade, onUpdate: NoAction, map: "name_school_fk")
   classes                               classes?                      @relation(fields: [class_id], references: [id], onUpdate: NoAction, map: "students_class_fk")

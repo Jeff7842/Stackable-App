@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
 export default function StaffResourcesPage() {
-    return (
-        <div>
-            <h1>Staff Resources</h1>
-        </div>
-    );
+  return (
+    <ComingSoon
+      title="Staff resources"
+      description="Documents and resources for staff."
+      icon="solar:folder-with-files-linear"
+    />
+  );
 }

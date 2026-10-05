@@ -31,6 +31,10 @@ export const ROLE_LABEL: Record<Role, string> = {
   student: "Student",
   pupil: "Pupil",
   parent: "Parent",
+  "dept-head": "Department head",
+  finance: "Finance",
+  secretary: "Secretary",
+  driver: "Driver",
 };
 
 export const ROLE_OPTIONS = Object.keys(ROLE_LABEL) as Role[];
@@ -48,6 +52,10 @@ const ROLE_TONE: Record<Role, BadgeTone> = {
   student: "neutral",
   pupil: "neutral",
   parent: "warning",
+  "dept-head": "success",
+  finance: "info",
+  secretary: "neutral",
+  driver: "neutral",
 };
 
 export function roleTone(role: string): BadgeTone {

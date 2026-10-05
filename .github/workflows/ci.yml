@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main, stage]
+
+jobs:
+  node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm check
+        env:
+          SKIP_DB_CHECKS: "1"
+          OTP_HASH_SECRET: ci-only-secret
+          SCHOOL_SECURITY_CODES_SECRET: ci-only-secret
+
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: vet and test every Go module
+        run: |
+          for m in $(find . -name go.mod -not -path "*/node_modules/*" -exec dirname {} \;); do
+            (cd "$m" && go vet ./... && go test ./...)
+          done

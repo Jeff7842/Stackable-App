@@ -15,6 +15,10 @@ const ROLE_TONE: Record<Role, BadgeTone> = {
   pupil: "warning",
   parent: "neutral",
   staff: "neutral",
+  "dept-head": "success",
+  finance: "info",
+  secretary: "neutral",
+  driver: "neutral",
 };
 
 export function RoleBadge({ role, size = "md" }: { role: Role; size?: "sm" | "md" }) {

@@ -31,6 +31,7 @@ export const PORTAL_CHIP: Record<Portal, string> = {
   dashboard: "bg-primary-tint text-primary-ink",
   principal: "bg-primary-tint text-primary-ink",
   teacher: "bg-info-tint text-info",
+  staff: "bg-info-tint text-info",
   student: "bg-success-tint text-success",
   parent: "bg-accent-tint text-accent-ink",
   developer: "bg-ink text-canvas",

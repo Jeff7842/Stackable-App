@@ -12,6 +12,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
+import { useMe } from "@/hooks/useMe";
 import { searchNav } from "@/lib/nav";
 import type { Portal } from "@/lib/validation/shared";
 import { NavIcon } from "@/components/sidebar/sidebar";
@@ -37,7 +38,7 @@ export function QuickSearch({ portal, className, autoFocus, enableShortcut, onDo
   const shortcut = useShortcutLabel();
   const listId = useId();
 
-  const results = searchNav(portal, query);
+  const results = searchNav(portal, query, 8, useMe().data?.role);
   const activeIndex = results.length === 0 ? -1 : Math.min(cursor, results.length - 1);
   const optionId = (index: number) => `${listId}-opt-${index}`;
 

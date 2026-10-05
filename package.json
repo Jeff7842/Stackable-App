@@ -1,0 +1,14 @@
+{
+  "name": "stackable",
+  "private": true,
+  "packageManager": "pnpm@10.30.1",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "vitest run",
+    "check": "pnpm --filter stackable-app check",
+    "verify": "pnpm typecheck && pnpm test && pnpm check"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.4"
+  }
+}

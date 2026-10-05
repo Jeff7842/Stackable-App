@@ -1,9 +1,11 @@
-import React from 'react'
+import { ComingSoon } from "@/components/ui";
 
-const analytics = () => {
+export default function AnalyticsPage() {
   return (
-    <div>analytics</div>
-  )
+    <ComingSoon
+      title="Analytics"
+      description="School-wide trends in attendance, fees and results."
+      icon="solar:chart-2-linear"
+    />
+  );
 }
-
-export default analytics

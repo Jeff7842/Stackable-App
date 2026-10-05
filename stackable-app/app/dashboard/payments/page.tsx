@@ -1,9 +1,11 @@
-import React from 'react'
+import { ComingSoon } from "@/components/ui";
 
-const page = () => {
+export default function PaymentsPage() {
   return (
-    <div>page</div>
-  )
+    <ComingSoon
+      title="Payments"
+      description="Fee collection, arrears and reconciliation."
+      icon="solar:wallet-money-linear"
+    />
+  );
 }
-
-export default page

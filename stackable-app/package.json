@@ -17,7 +17,7 @@
     "db:studio": "prisma studio",
     "db:transfer": "tsx scripts/migrate-data.ts",
     "db:migrate-auth": "tsx scripts/migrate-to-better-auth.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "check": "node scripts/run-checks.mjs"
   },
   "keywords": [],
   "author": "",
@@ -42,12 +42,11 @@
     "@upstash/redis": "^1.38.0",
     "axios": "^1.13.6",
     "bcryptjs": "^3.0.3",
-    "better-auth": "^1.6.18",
+    "better-auth": "1.6.18",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.577.0",
     "next": "^16.1.6",
-    "next-auth": "5.0.0-beta.30",
     "next-themes": "^0.4.6",
     "pg": "^8.21.0",
     "pingram": "^1.0.1",

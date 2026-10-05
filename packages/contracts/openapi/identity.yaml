@@ -1,0 +1,51 @@
+openapi: 3.1.0
+info:
+  title: Stackable Identity Service
+  version: 0.1.0
+paths:
+  /v1/me:
+    get:
+      operationId: getMe
+      summary: Current actor taken from the service token
+      security:
+        - serviceToken: []
+      responses:
+        "200":
+          description: The actor and school the token was issued for
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+        "401":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: Standard error envelope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    Me:
+      type: object
+      required: [userId, schoolId, role]
+      properties:
+        userId: { type: string }
+        schoolId: { type: string }
+        role: { type: [string, "null"] }
+    ErrorEnvelope:
+      type: object
+      required: [error, code, details, requestId]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        details: { type: object, additionalProperties: true }
+        requestId: { type: string }
