@@ -1,0 +1,514 @@
+openapi: 3.1.0
+info:
+  title: Stackable Academics Service
+  version: 0.1.0
+  description: >
+    Homework, CATs and grading. Every /v1 path needs a Bearer service token (audience "academics").
+    Release needs the token claim `rel: true`, set by the web gateway only after the school security
+    code is verified and the 5-try lockout is enforced. Answer keys are never returned to students or parents.
+security:
+  - serviceToken: []
+paths:
+  /v1/homework/assignments:
+    post:
+      operationId: createAssignment
+      summary: Teacher creates a DRAFT assignment with its questions
+      requestBody: { $ref: "#/components/requestBodies/CreateAssignment" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: listAssignments
+      summary: Teacher lists own assignments; student lists OPEN and CLOSED ones for classId
+      parameters:
+        - { name: classId, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/AssignmentStatus" } }
+      responses:
+        "200": { $ref: "#/components/responses/ItemList" }
+        "400": { $ref: "#/components/responses/Error" }
+  /v1/homework/assignments/{id}:
+    get:
+      operationId: getAssignment
+      summary: One assignment; keys and correct flags only in the teacher view
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: The assignment with items, content: { application/json: { schema: { type: object } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/homework/assignments/{id}/publish:
+    post:
+      operationId: publishAssignment
+      summary: DRAFT to OPEN; writes outbox assignment.published
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Published, content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/homework/assignments/{id}/close:
+    post:
+      operationId: closeAssignment
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Closed, content: { application/json: { schema: { $ref: "#/components/schemas/Assignment" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/homework/assignments/{id}/submissions:
+    get:
+      operationId: listSubmissions
+      summary: Teacher lists submissions of an assignment
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { $ref: "#/components/responses/ItemList" }
+  /v1/homework/assignments/{id}/open:
+    post:
+      operationId: openSubmission
+      summary: Student starts or resumes a submission (assignment must be OPEN and in the student's class)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [classId], properties: { classId: { type: string } } } } }
+      responses:
+        "200": { description: Submission and saved answers, content: { application/json: { schema: { type: object } } } }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/homework/submissions/{id}/answers/{itemId}:
+    put:
+      operationId: saveAnswer
+      summary: Student saves one answer
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { name: itemId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                responseText: { type: string }
+                selectedOptionId: { type: string }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { type: object } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/homework/submissions/{id}/submit:
+    post:
+      operationId: submitSubmission
+      summary: Accepted after closes_at but flagged late; 409 HOMEWORK_AI_GATE_LOCKED while any answer is gate-locked
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, status, submittedAt, late]
+                properties:
+                  id: { type: string }
+                  status: { type: string }
+                  submittedAt: { type: string, format: date-time }
+                  late: { type: boolean }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/homework/submissions/{id}/review:
+    post:
+      operationId: reviewSubmission
+      summary: Teacher decision; reason is required for RETURNED and REJECTED
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [decision]
+              properties:
+                decision: { type: string, enum: [APPROVED, RETURNED, REJECTED] }
+                reason: { type: string }
+      responses:
+        "200": { description: Reviewed, content: { application/json: { schema: { type: object } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/answers/{id}/gate:
+    post:
+      operationId: setAnswerGate
+      summary: The ai service locks or unlocks submission for one answer (role ai or service)
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [locked], properties: { locked: { type: boolean } } } } }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { type: object } } } }
+        "403": { $ref: "#/components/responses/Error" }
+  /v1/parents/{parentId}/children/{studentId}/homework:
+    get:
+      operationId: getParentHomework
+      summary: Parent read model; never answers, answer keys or transcripts
+      parameters:
+        - { name: parentId, in: path, required: true, schema: { type: string } }
+        - { name: studentId, in: path, required: true, schema: { type: string } }
+        - { name: aiHints, in: query, schema: { type: integer, minimum: 0 }, description: AI hint count supplied by the caller }
+        - { name: aiPractice, in: query, schema: { type: integer, minimum: 0 }, description: AI practice count supplied by the caller }
+      responses:
+        "200": { description: Homework status, content: { application/json: { schema: { $ref: "#/components/schemas/ParentHomework" } } } }
+        "403": { $ref: "#/components/responses/Error" }
+  /v1/parents/{parentId}/children/{studentId}/homework/{submissionId}/review:
+    post:
+      operationId: parentReviewHomework
+      summary: Parent acknowledges a child's submission
+      parameters:
+        - { name: parentId, in: path, required: true, schema: { type: string } }
+        - { name: studentId, in: path, required: true, schema: { type: string } }
+        - { name: submissionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [acknowledged], properties: { acknowledged: { type: boolean }, comment: { type: string } } }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { type: object } } } }
+  /v1/assessments:
+    post:
+      operationId: createAssessment
+      summary: Teacher creates a DRAFT cat or quiz (exams are a separate module)
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateAssessment" } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Assessment" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: listAssessments
+      parameters: [{ name: classId, in: query, schema: { type: string } }]
+      responses:
+        "200": { $ref: "#/components/responses/ItemList" }
+  /v1/assessments/{id}/schedule:
+    post:
+      operationId: scheduleAssessment
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Scheduled, content: { application/json: { schema: { $ref: "#/components/schemas/Assessment" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/assessments/{id}/accommodations:
+    post:
+      operationId: setAccommodation
+      summary: Extra minutes for one student, added to the deadline when they start
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [studentId, extraMinutes], properties: { studentId: { type: string }, extraMinutes: { type: integer, minimum: 1, maximum: 240 } } }
+      responses:
+        "201": { description: Saved, content: { application/json: { schema: { type: object } } } }
+  /v1/assessments/{id}/attempts:
+    post:
+      operationId: startAttempt
+      summary: Starts or resumes an attempt inside the window; returns questions without keys and the server deadline
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [classId], properties: { classId: { type: string } } } } }
+      responses:
+        "200": { description: Attempt, content: { application/json: { schema: { $ref: "#/components/schemas/StartedAttempt" } } } }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/assessments/{id}/results:
+    get:
+      operationId: listResults
+      summary: Teacher sees all results; a student sees their own only after release
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { $ref: "#/components/responses/ItemList" }
+  /v1/assessments/{id}/release:
+    post:
+      operationId: releaseResults
+      summary: Releases every result in one transaction; needs claim rel=true and every script marked
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200":
+          description: Released
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [assessmentId, releasedAt, count]
+                properties:
+                  assessmentId: { type: string }
+                  releasedAt: { type: string, format: date-time }
+                  count: { type: integer }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/attempts/{id}/answers/{questionId}:
+    put:
+      operationId: autosaveAnswer
+      summary: Autosave; 409 ATTEMPT_DEADLINE_PASSED after the server deadline
+      parameters:
+        - { $ref: "#/components/parameters/Id" }
+        - { name: questionId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [response], properties: { response: {} } } } }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { type: object, properties: { savedAt: { type: string, format: date-time } } } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/attempts/{id}/submit:
+    post:
+      operationId: submitAttempt
+      summary: After the deadline the attempt is recorded as AUTO_SUBMITTED
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Submitted, content: { application/json: { schema: { $ref: "#/components/schemas/Attempt" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/attempts/{id}/mark:
+    post:
+      operationId: markAttempt
+      summary: Teacher marks answers; finalise needs every answered short answer marked and an active grading system
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [marks, finalise]
+              properties:
+                finalise: { type: boolean }
+                marks:
+                  type: array
+                  items: { type: object, required: [questionId, marks], properties: { questionId: { type: string }, marks: { type: number, minimum: 0 } } }
+      responses:
+        "200": { description: Marked, content: { application/json: { schema: { $ref: "#/components/schemas/Attempt" } } } }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/attempts/{id}/scan-upload-link:
+    post:
+      operationId: requestScanUploadLink
+      summary: Placeholder object key for a paper scan; real signing lives in the documents service
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "201":
+          description: Key
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [objectKey, uploadUrl]
+                properties: { objectKey: { type: string }, uploadUrl: { type: [string, "null"] } }
+  /v1/grading/systems:
+    post:
+      operationId: createGradingSystem
+      summary: Admin creates an inactive system; bands must cover 0 to 100 with no gaps or overlaps
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: "#/components/schemas/CreateGradingSystem" } } }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { type: object } } } }
+        "400": { description: GRADING_BANDS_INVALID lists the offending rows in details.issues, content: { application/json: { schema: { $ref: "#/components/schemas/ErrorEnvelope" } } } }
+    get:
+      operationId: listGradingSystems
+      responses:
+        "200": { $ref: "#/components/responses/ItemList" }
+  /v1/grading/systems/{id}/activate:
+    post:
+      operationId: activateGradingSystem
+      summary: Activates one system and deactivates the old one; old results keep their system id
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      responses:
+        "200": { description: Activated, content: { application/json: { schema: { type: object } } } }
+  /v1/grading/systems/{id}/pass-marks:
+    put:
+      operationId: setPassMark
+      summary: Sets the default (no subjectId) or a per-subject pass mark
+      parameters: [{ $ref: "#/components/parameters/Id" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [passPct], properties: { subjectId: { type: string }, passPct: { type: number, minimum: 0, maximum: 100 } } }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { type: object } } } }
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  requestBodies:
+    CreateAssignment:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [title, classId, subjectId, dueAt, closesAt, items]
+            properties:
+              title: { type: string }
+              classId: { type: string }
+              subjectId: { type: string }
+              dueAt: { type: string, format: date-time }
+              closesAt: { type: string, format: date-time }
+              items:
+                type: array
+                minItems: 1
+                items:
+                  type: object
+                  required: [marks, question]
+                  properties:
+                    marks: { type: number }
+                    question:
+                      type: object
+                      required: [type, stem]
+                      properties:
+                        type: { type: string, enum: [short_answer, multiple_choice, research] }
+                        stem: { type: string }
+                        answerKey: { type: string }
+                        options:
+                          type: array
+                          items: { type: object, required: [label, isCorrect], properties: { label: { type: string }, isCorrect: { type: boolean } } }
+  responses:
+    Error:
+      description: Standard error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+    ItemList:
+      description: A bounded list
+      content:
+        application/json:
+          schema: { type: object, required: [items], properties: { items: { type: array, items: { type: object } } } }
+  schemas:
+    AssignmentStatus: { type: string, enum: [DRAFT, OPEN, CLOSED, ARCHIVED] }
+    Assignment:
+      type: object
+      required: [id, schoolId, classId, subjectId, teacherId, title, dueAt, closesAt, status]
+      properties:
+        id: { type: string }
+        schoolId: { type: string }
+        classId: { type: string }
+        subjectId: { type: string }
+        teacherId: { type: string }
+        title: { type: string }
+        dueAt: { type: string, format: date-time }
+        closesAt: { type: string, format: date-time }
+        status: { $ref: "#/components/schemas/AssignmentStatus" }
+    ParentHomework:
+      type: object
+      required: [studentId, aiUsage, items]
+      properties:
+        studentId: { type: string }
+        aiUsage: { type: object, required: [hints, practice], properties: { hints: { type: integer }, practice: { type: integer } } }
+        items:
+          type: array
+          items:
+            type: object
+            required: [submissionId, assignmentId, title, status, dueAt, closesAt, submittedAt, late, teacherComment]
+            properties:
+              submissionId: { type: string }
+              assignmentId: { type: string }
+              title: { type: string }
+              status: { type: string, enum: [IN_PROGRESS, SUBMITTED, APPROVED, RETURNED, REJECTED, MISSED] }
+              dueAt: { type: string, format: date-time }
+              closesAt: { type: string, format: date-time }
+              submittedAt: { type: [string, "null"], format: date-time }
+              late: { type: boolean }
+              teacherComment: { type: [string, "null"] }
+    Assessment:
+      type: object
+      required: [id, title, type, classId, durationMinutes, opensAt, closesAt, status]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        type: { type: string, enum: [cat, quiz] }
+        classId: { type: string }
+        subjectId: { type: [string, "null"] }
+        durationMinutes: { type: integer }
+        opensAt: { type: string, format: date-time }
+        closesAt: { type: string, format: date-time }
+        status: { type: string, enum: [DRAFT, SCHEDULED, OPEN, CLOSED, MARKED, RELEASED] }
+    CreateAssessment:
+      type: object
+      required: [title, type, classId, durationMinutes, opensAt, closesAt, questions]
+      properties:
+        title: { type: string }
+        type: { type: string, enum: [cat, quiz] }
+        classId: { type: string }
+        subjectId: { type: string }
+        durationMinutes: { type: integer, minimum: 1, maximum: 600 }
+        opensAt: { type: string, format: date-time }
+        closesAt: { type: string, format: date-time }
+        questions:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [type, stem, marks]
+            properties:
+              type: { type: string, enum: [short_answer, multiple_choice, reorder, calculation] }
+              stem: { type: string }
+              marks: { type: number }
+              choices: { type: array, items: { type: object, required: [label, isCorrect], properties: { label: { type: string }, isCorrect: { type: boolean } } } }
+              items: { type: array, items: { type: string }, description: Reorder items listed in the correct order }
+              expectedValue: { type: number }
+              tolerance: { type: number, minimum: 0 }
+              modelAnswer: { type: string }
+    StartedAttempt:
+      type: object
+      required: [attempt, serverNow, questions, answers]
+      properties:
+        attempt: { $ref: "#/components/schemas/Attempt" }
+        serverNow: { type: string, format: date-time }
+        questions:
+          type: array
+          items:
+            type: object
+            required: [id, position, type, stem, marks]
+            properties:
+              id: { type: string }
+              position: { type: integer }
+              type: { type: string }
+              stem: { type: string }
+              marks: { type: number }
+              choices: { type: array, items: { type: object, properties: { id: { type: string }, label: { type: string } } } }
+        answers: { type: array, items: { type: object, properties: { questionId: { type: string }, response: {} } } }
+    Attempt:
+      type: object
+      required: [id, assessmentId, status, dueAt]
+      properties:
+        id: { type: string }
+        assessmentId: { type: string }
+        status: { type: string, enum: [NOT_STARTED, IN_PROGRESS, SUBMITTED, UNDER_MARKING, MARKED, AUTO_SUBMITTED] }
+        startedAt: { type: [string, "null"], format: date-time }
+        dueAt: { type: [string, "null"], format: date-time }
+        submittedAt: { type: [string, "null"], format: date-time }
+        score: { type: [number, "null"] }
+    CreateGradingSystem:
+      type: object
+      required: [name, effectiveFrom, bands]
+      properties:
+        name: { type: string }
+        effectiveFrom: { type: string, format: date-time }
+        bands:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [minPct, maxPct, grade, points]
+            properties:
+              minPct: { type: number, minimum: 0, maximum: 100 }
+              maxPct: { type: number, minimum: 0, maximum: 100 }
+              grade: { type: string }
+              points: { type: number }
+              remark: { type: string }
+        passMarks:
+          type: array
+          items: { type: object, required: [passPct], properties: { subjectId: { type: string }, passPct: { type: number } } }
+    ErrorEnvelope:
+      type: object
+      required: [error, code, details, requestId]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        details: { type: object, additionalProperties: true }
+        requestId: { type: string }
