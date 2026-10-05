@@ -39,7 +39,7 @@ export function UserMenu({ portal, onOpenProfile }: UserMenuProps) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const settings = settingsHref(portal);
+  const settings = settingsHref(portal, me.data?.role);
   const name = displayName(me.data);
   const role = formatRole(me.data?.role, portal);
   const loading = me.isPending;

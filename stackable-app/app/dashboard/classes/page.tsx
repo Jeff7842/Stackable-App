@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
 export default function ClassesPage() {
-    return (
-        <div>
-            <h1>Classes</h1>
-        </div>
-    );
+  return (
+    <ComingSoon
+      title="Classes"
+      description="Classes and streams, with their teachers and learners."
+      icon="solar:widget-2-linear"
+    />
+  );
 }

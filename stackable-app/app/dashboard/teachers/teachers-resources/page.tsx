@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
 export default function TeacherResourcesPage() {
-    return (
-        <div>
-            <h1>Teacher Resources</h1>
-        </div>
-    );
+  return (
+    <ComingSoon
+      title="Teacher resources"
+      description="Documents and resources for teachers."
+      icon="solar:folder-with-files-linear"
+    />
+  );
 }

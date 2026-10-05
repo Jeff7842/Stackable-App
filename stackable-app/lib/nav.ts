@@ -31,8 +31,8 @@ import type {
 // -----------------------------------------------------------------------------
 // Small builders (keep the config below readable)
 // -----------------------------------------------------------------------------
-type LeafExtra = Pick<SidebarLeafItem, "primary" | "keywords" | "title" | "live">;
-type GroupExtra = Pick<SidebarGroupItem, "primary" | "keywords" | "live">;
+type LeafExtra = Pick<SidebarLeafItem, "primary" | "keywords" | "title" | "live" | "soon">;
+type GroupExtra = Pick<SidebarGroupItem, "primary" | "keywords" | "live" | "soon">;
 
 function link(
   href: string,
@@ -57,8 +57,9 @@ function section(
   key: string,
   label: string,
   items: SidebarSection["items"],
+  roles?: readonly string[],
 ): SidebarSection {
-  return { key, label, ariaLabel: `${label} navigation`, items };
+  return { key, label, ariaLabel: `${label} navigation`, items, ...(roles ? { roles } : {}) };
 }
 
 // -----------------------------------------------------------------------------
@@ -68,6 +69,7 @@ export const PORTAL_LABEL: Record<Portal, string> = {
   dashboard: "School workspace",
   principal: "Principal",
   teacher: "Teacher",
+  staff: "Staff",
   student: "Student",
   parent: "Parent",
   developer: "Developer",
@@ -78,6 +80,7 @@ export const PORTAL_HOME: Record<Portal, string> = {
   dashboard: "/dashboard",
   principal: "/admin",
   teacher: "/teach",
+  staff: "/staff",
   student: "/learn",
   parent: "/family",
   developer: "/dev",
@@ -86,7 +89,7 @@ export const PORTAL_HOME: Record<Portal, string> = {
 // -----------------------------------------------------------------------------
 // The menus
 // -----------------------------------------------------------------------------
-export const NAV: Record<Portal, SidebarSection[]> = {
+const RAW_NAV: Record<Portal, SidebarSection[]> = {
   // ---------------------------------------------------------------------------
   // /dashboard/* - the school admin workspace
   // ---------------------------------------------------------------------------
@@ -233,6 +236,35 @@ export const NAV: Record<Portal, SidebarSection[]> = {
   ],
 
   // ---------------------------------------------------------------------------
+  // /staff - finance, secretary and driver (sections are role-tagged)
+  // ---------------------------------------------------------------------------
+  staff: [
+    section("workspace", "Workspace", [link("/staff", "Home", "home-2", { primary: true })]),
+    section("fees", "Fees", [
+      link("/staff/fees", "Fee structures", "wallet-money", { primary: true, keywords: ["invoices", "billing"] }),
+      link("/staff/fees/invoices", "Invoices", "bill-list"),
+      link("/staff/fees/unmatched", "Unmatched payments", "danger-triangle", { keywords: ["reconcile"] }),
+      link("/staff/fees/receipts", "Receipts", "document-text"),
+    ], ["finance"]),
+    section("money", "Events and funds", [
+      link("/staff/events", "Events", "calendar-mark"),
+      link("/staff/payroll", "Payroll", "banknote-2", { keywords: ["salaries", "payslips"] }),
+    ], ["finance"]),
+    section("records", "Records", [
+      link("/staff/records", "Student records", "folder-with-files", { primary: true, keywords: ["students", "parents"] }),
+      link("/staff/pickup", "Early pickup", "user-check", { keywords: ["authorized", "handover"] }),
+      link("/staff/announcements", "Announcements", "bell-bing", { keywords: ["notices", "drafts"] }),
+      link("/staff/library", "School library", "library", { keywords: ["books", "past papers"] }),
+    ], ["secretary"]),
+    section("route", "Bus run", [
+      link("/staff/route", "Route manifest", "bus", { primary: true, keywords: ["riders", "bus"] }),
+      link("/staff/duty", "Bus duty", "clipboard-check"),
+    ], ["driver"]),
+    section("communication", "Communication", [link("/staff/inbox", "Inbox", "inbox", { primary: true })]),
+    section("system", "System", [link("/staff/settings", "Settings", "settings")]),
+  ],
+
+  // ---------------------------------------------------------------------------
   // /learn
   // ---------------------------------------------------------------------------
   student: [
@@ -286,6 +318,47 @@ export const NAV: Record<Portal, SidebarSection[]> = {
 };
 
 // -----------------------------------------------------------------------------
+// "Soon" pages: they exist as ComingSoon placeholders. Delete an href from this
+// list in the same change that builds the page, and the tag disappears.
+// -----------------------------------------------------------------------------
+const SOON_HREFS = new Set<string>([
+  "/dashboard/calender", "/dashboard/live-activity", "/dashboard/live-activity/real-time",
+  "/dashboard/live-activity/transport-status", "/dashboard/students/allocation",
+  "/dashboard/students/students-resources", "/dashboard/teachers/load-allocation",
+  "/dashboard/teachers/teachers-resources", "/dashboard/parents", "/dashboard/parents/parents-resources",
+  "/dashboard/staff", "/dashboard/staff/duty-allocation", "/dashboard/staff/staff-resources",
+  "/dashboard/classes", "/dashboard/homework", "/dashboard/exams", "/dashboard/quizes",
+  "/dashboard/cognitive-abilities-test", "/dashboard/grades-reports", "/dashboard/library",
+  "/dashboard/payments", "/dashboard/payments/school-fees", "/dashboard/payments/salaries",
+  "/dashboard/payments/events", "/dashboard/payments/events/maintenance", "/dashboard/inbox",
+  "/dashboard/message-app", "/dashboard/notifications", "/dashboard/analytics",
+  "/dashboard/ai/summarizer", "/dashboard/ai/quiz-generator", "/dashboard/ai/flashcard-maker",
+  "/dashboard/ai/homework-assistant",
+  "/teach/classes", "/teach/subjects", "/teach/timetable", "/teach/attendance", "/teach/grading",
+  "/teach/inbox", "/teach/settings",
+  "/learn/subjects", "/learn/homework", "/learn/library", "/learn/inbox", "/learn/settings",
+  "/family/fees", "/family/inbox", "/family/notices", "/family/settings",
+  "/staff/fees", "/staff/fees/invoices", "/staff/fees/unmatched", "/staff/fees/receipts",
+  "/staff/events", "/staff/payroll", "/staff/records", "/staff/pickup", "/staff/announcements",
+  "/staff/library", "/staff/route", "/staff/duty", "/staff/inbox",
+]);
+
+function markSoon(sections: SidebarSection[]): SidebarSection[] {
+  return sections.map((sec) => ({
+    ...sec,
+    items: sec.items.map((item) => {
+      if (item.type === "link") return SOON_HREFS.has(item.href) ? { ...item, soon: true } : item;
+      const children = item.children.map((c) => (SOON_HREFS.has(c.href) ? { ...c, soon: true } : c));
+      return { ...item, children, soon: children.every((c) => c.soon) };
+    }),
+  }));
+}
+
+export const NAV = Object.fromEntries(
+  Object.entries(RAW_NAV).map(([portal, sections]) => [portal, markSoon(sections)]),
+) as Record<Portal, SidebarSection[]>;
+
+// -----------------------------------------------------------------------------
 // Flattened view (search, titles, bottom pill)
 // -----------------------------------------------------------------------------
 export type NavEntry = {
@@ -304,15 +377,21 @@ export type NavEntry = {
   primary: boolean;
 };
 
-const flatCache = new Map<Portal, NavEntry[]>();
+const flatCache = new Map<string, NavEntry[]>();
+
+/** A portal's menu sections; role-tagged sections show only to those roles. */
+export function navFor(portal: Portal, role?: string | null): SidebarSection[] {
+  return NAV[portal].filter((sec) => !sec.roles || (role != null && (sec.roles as readonly string[]).includes(role)));
+}
 
 /** Every routable row of a portal's menu, in display order (children included). */
-export function flattenNav(portal: Portal): NavEntry[] {
-  const cached = flatCache.get(portal);
+export function flattenNav(portal: Portal, role?: string | null): NavEntry[] {
+  const cacheKey = `${portal}:${role ?? ""}`;
+  const cached = flatCache.get(cacheKey);
   if (cached) return cached;
 
   const entries: NavEntry[] = [];
-  for (const sec of NAV[portal]) {
+  for (const sec of navFor(portal, role)) {
     const secLabel = sec.label ?? sec.key;
     for (const item of sec.items) {
       if (item.type === "link") {
@@ -342,7 +421,7 @@ export function flattenNav(portal: Portal): NavEntry[] {
       }
     }
   }
-  flatCache.set(portal, entries);
+  flatCache.set(cacheKey, entries);
   return entries;
 }
 
@@ -374,10 +453,10 @@ function hrefMatches(pathname: string, href: string): boolean {
 }
 
 /** The single active href of a portal's menu for this pathname, or null. */
-export function activeNavHref(portal: Portal, pathname: string): string | null {
+export function activeNavHref(portal: Portal, pathname: string, role?: string | null): string | null {
   const path = cleanPath(pathname);
   let best: string | null = null;
-  for (const entry of flattenNav(portal)) {
+  for (const entry of flattenNav(portal, role)) {
     if (hrefMatches(path, entry.href) && (best === null || entry.href.length > best.length)) {
       best = entry.href;
     }
@@ -386,25 +465,25 @@ export function activeNavHref(portal: Portal, pathname: string): string | null {
 }
 
 /** The menu row for the current page (deepest match), used for the page title. */
-export function findNavItem(portal: Portal, pathname: string): NavEntry | null {
-  const href = activeNavHref(portal, pathname);
+export function findNavItem(portal: Portal, pathname: string, role?: string | null): NavEntry | null {
+  const href = activeNavHref(portal, pathname, role);
   if (!href) return null;
-  return flattenNav(portal).find((entry) => entry.href === href) ?? null;
+  return flattenNav(portal, role).find((entry) => entry.href === href) ?? null;
 }
 
 // -----------------------------------------------------------------------------
 // Bottom pill, bell and search helpers
 // -----------------------------------------------------------------------------
 /** Up to `max` destinations for the mobile bottom pill (flagged `primary`, else the first ones). */
-export function primaryNav(portal: Portal, max = 4): NavEntry[] {
-  const all = flattenNav(portal);
+export function primaryNav(portal: Portal, max = 4, role?: string | null): NavEntry[] {
+  const all = flattenNav(portal, role);
   const flagged = all.filter((entry) => entry.primary);
   return (flagged.length > 0 ? flagged : all).slice(0, max);
 }
 
 /** Where the top-bar bell should link, or null when the portal has no such page. */
-export function notificationsHref(portal: Portal): string | null {
-  const entries = flattenNav(portal);
+export function notificationsHref(portal: Portal, role?: string | null): string | null {
+  const entries = flattenNav(portal, role);
   for (const suffix of ["/notifications", "/notices", "/inbox"]) {
     const hit = entries.find((entry) => entry.href.endsWith(suffix));
     if (hit) return hit.href;
@@ -413,8 +492,8 @@ export function notificationsHref(portal: Portal): string | null {
 }
 
 /** The portal's settings page, if it has one. */
-export function settingsHref(portal: Portal): string | null {
-  return flattenNav(portal).find((entry) => entry.href.endsWith("/settings"))?.href ?? null;
+export function settingsHref(portal: Portal, role?: string | null): string | null {
+  return flattenNav(portal, role).find((entry) => entry.href.endsWith("/settings"))?.href ?? null;
 }
 
 /**
@@ -422,11 +501,11 @@ export function settingsHref(portal: Portal): string | null {
  * label, group, section or keywords. Rows whose label starts with the query
  * come first. An empty query returns the primary rows as suggestions.
  */
-export function searchNav(portal: Portal, query: string, limit = 8): NavEntry[] {
+export function searchNav(portal: Portal, query: string, limit = 8, role?: string | null): NavEntry[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
-  const all = flattenNav(portal);
+  const all = flattenNav(portal, role);
   if (words.length === 0) {
-    return primaryNav(portal, limit);
+    return primaryNav(portal, limit, role);
   }
 
   const scored: Array<{ entry: NavEntry; score: number }> = [];

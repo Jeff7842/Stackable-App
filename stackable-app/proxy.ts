@@ -17,6 +17,7 @@
 
 import { NextResponse, type NextRequest } from "next/server";
 import { ANY_SESSION_COOKIES, safeNextPath } from "@/lib/api/session";
+import { DEMO_COOKIE, parseDemoRole } from "@/lib/demo/mode";
 
 /**
  * Redirect cookie-less requests for protected pages to /login.
@@ -28,7 +29,10 @@ export function proxy(request: NextRequest) {
   const hasSessionCookie = ANY_SESSION_COOKIES.some((name) =>
     Boolean(request.cookies.get(name)?.value),
   );
-  if (hasSessionCookie) return NextResponse.next();
+  // A demo cookie only lets the page shell render; data still needs a real session.
+  if (hasSessionCookie || parseDemoRole(request.cookies.get(DEMO_COOKIE)?.value)) {
+    return NextResponse.next();
+  }
 
   const loginUrl = request.nextUrl.clone();
   loginUrl.pathname = "/login";
@@ -53,6 +57,7 @@ export const config = {
     "/dashboard/:path*",
     "/admin/:path*",
     "/teach/:path*",
+    "/staff/:path*",
     "/learn/:path*",
     "/family/:path*",
     "/dev/:path*",

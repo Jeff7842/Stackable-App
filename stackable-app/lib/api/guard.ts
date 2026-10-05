@@ -27,9 +27,10 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { hashToken } from "@/lib/auth-utils";
+import { DEMO_COOKIE, parseDemoRole } from "@/lib/demo/mode";
 import { findLiveSession, isPageAllowed } from "@/lib/repositories/auth.repo";
 import type { Role, PageKey, Portal } from "@/lib/validation/shared";
-import { ApiError, forbidden, unauthorized } from "./errors";
+import { forbidden, unauthorized } from "./errors";
 import {
   AUDIT_ACTION_REQUEST,
   IMPERSONATION_COOKIE,
@@ -40,7 +41,7 @@ import {
   writeAuditLog,
   type ImpersonatedBy,
 } from "./impersonation";
-import { enforceRateLimit, type RateLimitKind } from "./ratelimit";
+import { rateLimitOrSkip, type RateLimitKind } from "./ratelimit";
 import { SESSION_COOKIE, roleGate } from "./session";
 
 export type AuthContext = {
@@ -189,19 +190,12 @@ export async function resolveRealSession(): Promise<AuthContext | null> {
 }
 
 /**
- * Apply a rate limit, but don't fail closed if Redis isn't configured yet.
+ * Apply a rate limit; fails closed in production if Redis is down (see rateLimitOrSkip).
  * Exported so routes that do not use requireAuth (impersonation start/stop) limit the same way.
  */
 export async function maybeRateLimit(kind: RateLimitKind, identifier: string): Promise<void> {
-  try {
-    await enforceRateLimit(kind, identifier);
-  } catch (err) {
-    if (err instanceof ApiError) throw err; // a real 429 — propagate
-    // Redis not configured / unreachable: log once and allow through.
-    console.warn(`[guard] rate limit skipped (${kind}):`, (err as Error).message);
-  }
+  await rateLimitOrSkip(kind, identifier);
 }
-
 /**
  * Gate a route. Throws ApiError (caught by toErrorResponse) on failure, or
  * returns the authenticated context on success.
@@ -277,9 +271,14 @@ export async function requireAuth(
  * @param portal which portal the calling layout protects
  * @returns the authenticated context (only reached when access is allowed)
  */
-export async function requireRole(portal: Portal): Promise<AuthContext> {
+export async function requireRole(portal: Portal): Promise<AuthContext | null> {
   const ctx = await resolveSession();
-  if (!ctx) redirect("/login");
+  if (!ctx) {
+    // Demo visitors (no real session) see the shell only; the API still refuses them.
+    const demoRole = parseDemoRole((await cookies()).get(DEMO_COOKIE)?.value);
+    if (demoRole && roleGate(demoRole, portal).allowed) return null;
+    redirect("/login");
+  }
 
   const verdict = roleGate(ctx.role, portal);
   if (!verdict.allowed) redirect(verdict.redirectTo);

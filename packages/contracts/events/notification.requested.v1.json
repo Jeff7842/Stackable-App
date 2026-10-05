@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://stackable.app/events/notification.requested.v1.json",
+  "title": "notification.requested.v1",
+  "type": "object",
+  "required": ["eventId", "schoolId", "type", "audience", "payload", "occurredAt"],
+  "additionalProperties": false,
+  "properties": {
+    "eventId": { "type": "string", "description": "Unique per event; consumers dedupe on it" },
+    "schoolId": { "type": "string" },
+    "type": { "type": "string", "description": "Notification kind, e.g. fee.invoice_issued" },
+    "audience": { "type": "object", "description": "Who receives it (roles, user ids or class ids)", "additionalProperties": true },
+    "payload": { "type": "object", "description": "Template variables", "additionalProperties": true },
+    "occurredAt": { "type": "string", "format": "date-time" }
+  }
+}

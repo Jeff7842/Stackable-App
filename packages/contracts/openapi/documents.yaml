@@ -1,0 +1,199 @@
+openapi: 3.1.0
+info:
+  title: Stackable Documents Service
+  version: 0.1.0
+paths:
+  /v1/documents:
+    post:
+      operationId: createDocument
+      summary: Serve a cached document, render a small one now, or queue a large one
+      security:
+        - serviceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentRequest"
+      responses:
+        "200":
+          description: Cache hit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentResult"
+        "201":
+          description: Rendered now and cached
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentResult"
+        "202":
+          description: Queued for the worker
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentResult"
+        "400":
+          $ref: "#/components/responses/Error"
+        "401":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/documents/{id}:
+    get:
+      operationId: getDocument
+      summary: Document status and a freshly signed url
+      security:
+        - serviceToken: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: The document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentView"
+        "401":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+        "500":
+          $ref: "#/components/responses/Error"
+  /v1/files/{key}:
+    get:
+      operationId: downloadFile
+      summary: Download through a signed link (local file store only)
+      description: The signature is the credential. R2 deployments serve downloads from R2 instead.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          allowReserved: true
+          schema: { type: string }
+        - name: exp
+          in: query
+          required: true
+          schema: { type: integer }
+        - name: sig
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: The file
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema: { type: string, format: binary }
+        "403":
+          $ref: "#/components/responses/Error"
+        "404":
+          $ref: "#/components/responses/Error"
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: Standard error envelope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+  schemas:
+    DocType:
+      type: string
+      enum: [receipt, report_card, fee_statement, class_sheet, generic]
+    Format:
+      type: string
+      enum: [pdf, xlsx]
+    Status:
+      type: string
+      enum: [SERVED, STORED_AND_CACHED, QUEUED_JOB, RENDERING, FAILED]
+    CreateDocumentRequest:
+      type: object
+      required: [type, format, dataVersion, data]
+      properties:
+        type: { $ref: "#/components/schemas/DocType" }
+        format: { $ref: "#/components/schemas/Format" }
+        params: { type: object, additionalProperties: true }
+        dataVersion:
+          type: string
+          maxLength: 128
+          description: Change it whenever the source data changes; it is part of the cache key.
+        data:
+          description: Receipt data for type receipt, table data for every other type.
+          oneOf:
+            - $ref: "#/components/schemas/ReceiptData"
+            - $ref: "#/components/schemas/TableData"
+    ReceiptData:
+      type: object
+      required: [schoolName, receiptNo, lines]
+      properties:
+        schoolName: { type: string }
+        receiptNo: { type: string }
+        payerName: { type: string }
+        issuedAt: { type: string }
+        lines:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [description, amountMinor]
+            properties:
+              description: { type: string }
+              amountMinor: { type: integer, format: int64, description: Amount in minor units (cents) }
+    TableData:
+      type: object
+      required: [schoolName, columns, rows]
+      properties:
+        schoolName: { type: string }
+        title: { type: string }
+        columns:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [key, label]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              money: { type: boolean, description: Cells are integer minor units }
+        rows:
+          type: array
+          items: { type: object, additionalProperties: true }
+    DocumentResult:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/Status" }
+        url: { type: string }
+        renderMs: { type: integer, format: int64 }
+    DocumentView:
+      type: object
+      required: [id, status, type, format, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/Status" }
+        type: { $ref: "#/components/schemas/DocType" }
+        format: { $ref: "#/components/schemas/Format" }
+        url: { type: string }
+        renderMs: { type: integer, format: int64 }
+        createdAt: { type: string, format: date-time }
+    ErrorEnvelope:
+      type: object
+      required: [error, code, details, requestId]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        details: { type: object, additionalProperties: true }
+        requestId: { type: string }

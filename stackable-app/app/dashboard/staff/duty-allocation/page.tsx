@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
 export default function DutyAllocationPage() {
-    return (
-        <div>
-            <h1>Duty Allocation</h1>
-        </div>
-    );
+  return (
+    <ComingSoon
+      title="Duty allocation"
+      description="Assign duties and check them against timetables."
+      icon="solar:clipboard-check-linear"
+    />
+  );
 }

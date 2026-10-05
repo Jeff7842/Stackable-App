@@ -1,0 +1,421 @@
+openapi: 3.1.0
+info:
+  title: Stackable Payments Service
+  version: 0.2.0
+  description: Fees MVP. All amounts are int64 minor units (KES cents). Every route except the webhook needs a service token whose audience is "payments".
+paths:
+  /v1/fee-structures:
+    post:
+      operationId: createFeeStructure
+      summary: Create a price list for one term and level
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FeeStructureInput" }
+      responses:
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/FeeStructure" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    get:
+      operationId: listFeeStructures
+      summary: List fee structures (cursor paged by id)
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: term, in: query, schema: { type: string } }
+        - { name: level, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/After" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/FeeStructure" } }
+                  nextCursor: { type: string, description: "Empty when there is no next page" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/invoices:
+    post:
+      operationId: issueInvoices
+      summary: Issue invoices to students and debit the ledger in one transaction
+      description: Send feeStructureId (mandatory items are billed) or custom lines with a term, not both. A student already invoiced for the structure and term gives 409 INVOICE_ALREADY_ISSUED and nothing is written.
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IssueInvoicesInput" }
+      responses:
+        "201":
+          description: Issued
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invoices]
+                properties:
+                  invoices: { type: array, items: { $ref: "#/components/schemas/Invoice" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/students/{id}/statement:
+    get:
+      operationId: getStatement
+      summary: Balance by term, itemised lines and payments
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: term, in: query, schema: { type: string }, description: "Filters lines; balanceMinor is always the full ledger sum" }
+      responses:
+        "200": { description: Statement, content: { application/json: { schema: { $ref: "#/components/schemas/Statement" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/payments/intent:
+    post:
+      operationId: createPaymentIntent
+      summary: Create a PENDING payment and ask the rail to collect it
+      description: A repeated idempotencyKey with the same body returns the same payment with 200 and never charges twice; a different body gives 409 IDEMPOTENCY_KEY_REUSED. Provider failures use PAYMENT_INSUFFICIENT_FUNDS, PAYMENT_WRONG_PIN, PAYMENT_USER_CANCELLED (402), PAYMENT_TIMEOUT (504) and PAYMENT_RAIL_DOWN (503), with details.paymentId of the FAILED payment.
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntentInput" }
+      responses:
+        "200": { description: Replay of an earlier intent, content: { application/json: { schema: { $ref: "#/components/schemas/Payment" } } } }
+        "201": { description: Created, content: { application/json: { schema: { $ref: "#/components/schemas/Payment" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "402": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "422": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+  /v1/payments/{id}:
+    get:
+      operationId: getPayment
+      summary: Read one payment so a client can poll its status
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { description: Payment, content: { application/json: { schema: { $ref: "#/components/schemas/Payment" } } } }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/webhooks/{provider}:
+    post:
+      operationId: receiveWebhook
+      summary: Provider callback, applied exactly once
+      description: Called by the provider, so no service token. The first confirmation moves the payment to CONFIRMED and writes allocations, a CREDIT_PAYMENT ledger entry, a receipt and a payment.confirmed outbox row in one transaction. Repeats return duplicate true and change nothing.
+      parameters:
+        - { name: provider, in: path, required: true, schema: { type: string, enum: [mpesa, fake] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [received, duplicate, outcome]
+                properties:
+                  received: { type: boolean }
+                  duplicate: { type: boolean }
+                  outcome: { type: string, enum: [CONFIRMED, FAILED, UNMATCHED, IGNORED, RECORDED] }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /v1/unmatched:
+    get:
+      operationId: listUnmatched
+      summary: Payments waiting for a human decision
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: includeResolved, in: query, schema: { type: boolean, default: false } }
+        - { $ref: "#/components/parameters/After" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: One page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, nextCursor]
+                properties:
+                  items: { type: array, items: { $ref: "#/components/schemas/UnmatchedPayment" } }
+                  nextCursor: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+  /v1/unmatched/{id}/resolve:
+    post:
+      operationId: resolveUnmatched
+      summary: Assign queued money to a student and confirm the payment
+      description: id is the payment id. With no invoiceLineIds the whole amount becomes student credit. A second call gives 409 PAYMENT_ALREADY_RESOLVED.
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResolveInput" }
+      responses:
+        "200": { description: Resolved, content: { application/json: { schema: { $ref: "#/components/schemas/Payment" } } } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/reconciliation:
+    get:
+      operationId: getReconciliation
+      summary: Payment rows for the Excel export done by the documents service
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: from, in: query, required: true, schema: { type: string }, description: "RFC 3339 or YYYY-MM-DD, inclusive" }
+        - { name: to, in: query, required: true, schema: { type: string }, description: "RFC 3339 or YYYY-MM-DD, exclusive" }
+        - { $ref: "#/components/parameters/After" }
+        - { $ref: "#/components/parameters/Limit" }
+      responses:
+        "200":
+          description: One page, ordered by payment id
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rows, nextCursor]
+                properties:
+                  rows: { type: array, items: { $ref: "#/components/schemas/ReconRow" } }
+                  nextCursor: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    After:
+      name: after
+      in: query
+      description: Cursor, the last id of the previous page
+      schema: { type: string, format: uuid }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+  responses:
+    Error:
+      description: Standard error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  schemas:
+    ErrorEnvelope:
+      type: object
+      required: [error, code, requestId]
+      properties:
+        error: { type: string, description: Message safe to show the user }
+        code: { type: string, description: Stable machine code such as VALIDATION_FAILED or PAYMENT_TIMEOUT }
+        details: { description: Failed fields for validation errors, or ids such as paymentId }
+        requestId: { type: string }
+    Money:
+      type: integer
+      format: int64
+      description: Minor units (KES cents)
+    FeeItem:
+      type: object
+      required: [id, name, amountMinor, mandatory]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        amountMinor: { $ref: "#/components/schemas/Money" }
+        mandatory: { type: boolean }
+    FeeStructureInput:
+      type: object
+      required: [name, term, level, items]
+      properties:
+        name: { type: string }
+        term: { type: string, examples: ["2026-T1"] }
+        level: { type: string }
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            type: object
+            required: [name, amountMinor]
+            properties:
+              name: { type: string }
+              amountMinor: { type: integer, format: int64, minimum: 1 }
+              mandatory: { type: boolean }
+    FeeStructure:
+      type: object
+      required: [id, name, term, level, items, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        term: { type: string }
+        level: { type: string }
+        items: { type: array, items: { $ref: "#/components/schemas/FeeItem" } }
+        createdAt: { type: string, format: date-time }
+    IssueInvoicesInput:
+      type: object
+      required: [studentIds]
+      properties:
+        studentIds: { type: array, minItems: 1, maxItems: 500, items: { type: string, format: uuid } }
+        feeStructureId: { type: string, format: uuid }
+        term: { type: string, description: Required with custom lines }
+        lines:
+          type: array
+          maxItems: 50
+          items:
+            type: object
+            required: [description, amountMinor]
+            properties:
+              description: { type: string }
+              amountMinor: { type: integer, format: int64, minimum: 1 }
+              feeItemId: { type: string, format: uuid }
+    InvoiceLine:
+      type: object
+      required: [id, invoiceId, description, amountMinor]
+      properties:
+        id: { type: string, format: uuid }
+        invoiceId: { type: string, format: uuid }
+        feeItemId: { type: string, format: uuid }
+        description: { type: string }
+        amountMinor: { $ref: "#/components/schemas/Money" }
+    Invoice:
+      type: object
+      required: [id, studentId, term, status, issuedAt, totalMinor, lines]
+      properties:
+        id: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        term: { type: string }
+        status: { type: string, enum: [ISSUED, PARTIAL, PAID] }
+        feeStructureId: { type: string, format: uuid }
+        issuedAt: { type: string, format: date-time }
+        totalMinor: { $ref: "#/components/schemas/Money" }
+        lines: { type: array, items: { $ref: "#/components/schemas/InvoiceLine" } }
+    Statement:
+      type: object
+      required: [studentId, balanceMinor, creditMinor, terms, payments]
+      properties:
+        studentId: { type: string, format: uuid }
+        balanceMinor: { type: integer, format: int64, description: Ledger sum; negative means the student is in credit }
+        creditMinor: { $ref: "#/components/schemas/Money" }
+        terms:
+          type: array
+          items:
+            type: object
+            required: [term, invoicedMinor, paidMinor, balanceMinor, lines]
+            properties:
+              term: { type: string }
+              invoicedMinor: { $ref: "#/components/schemas/Money" }
+              paidMinor: { $ref: "#/components/schemas/Money" }
+              balanceMinor: { $ref: "#/components/schemas/Money" }
+              lines:
+                type: array
+                items:
+                  type: object
+                  required: [lineId, invoiceId, description, amountMinor, paidMinor, outstandingMinor]
+                  properties:
+                    lineId: { type: string, format: uuid }
+                    invoiceId: { type: string, format: uuid }
+                    description: { type: string }
+                    amountMinor: { $ref: "#/components/schemas/Money" }
+                    paidMinor: { $ref: "#/components/schemas/Money" }
+                    outstandingMinor: { $ref: "#/components/schemas/Money" }
+        payments:
+          type: array
+          items:
+            type: object
+            required: [id, rail, amountMinor, status, createdAt]
+            properties:
+              id: { type: string, format: uuid }
+              rail: { $ref: "#/components/schemas/Rail" }
+              amountMinor: { $ref: "#/components/schemas/Money" }
+              status: { $ref: "#/components/schemas/PaymentStatus" }
+              failureCode: { $ref: "#/components/schemas/FailureCode" }
+              receiptNumber: { type: string }
+              createdAt: { type: string, format: date-time }
+    Rail:
+      type: string
+      enum: [mpesa, card, bank, fake]
+    PaymentStatus:
+      type: string
+      enum: [PENDING, CONFIRMED, REVERSED, FAILED, UNMATCHED]
+    FailureCode:
+      type: string
+      enum: [INSUFFICIENT_FUNDS, WRONG_PIN, TIMEOUT, USER_CANCELLED, RAIL_DOWN]
+    IntentInput:
+      type: object
+      required: [studentId, amountMinor, rail, invoiceLineIds, idempotencyKey]
+      properties:
+        studentId: { type: string, format: uuid }
+        amountMinor: { type: integer, format: int64, minimum: 1, description: Partial payments are allowed; may not exceed what is outstanding on the chosen lines }
+        rail: { $ref: "#/components/schemas/Rail" }
+        invoiceLineIds: { type: array, minItems: 1, maxItems: 50, items: { type: string, format: uuid } }
+        idempotencyKey: { type: string, maxLength: 128 }
+        payerPhone: { type: string, description: Required for mpesa, examples: ["0712345678"] }
+    Payment:
+      type: object
+      required: [id, rail, amountMinor, status, kind, invoiceLineIds, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        payerUserId: { type: string }
+        rail: { $ref: "#/components/schemas/Rail" }
+        providerTransactionId: { type: string }
+        amountMinor: { $ref: "#/components/schemas/Money" }
+        status: { $ref: "#/components/schemas/PaymentStatus" }
+        failureCode: { $ref: "#/components/schemas/FailureCode" }
+        kind: { type: string, enum: [INVOICE_LINE, EVENT, WALLET, FUNDRAISER] }
+        invoiceLineIds: { type: array, items: { type: string, format: uuid } }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    UnmatchedPayment:
+      type: object
+      required: [paymentId, reason, rail, amountMinor, createdAt]
+      properties:
+        paymentId: { type: string, format: uuid }
+        reason: { type: string, enum: [NO_MATCHING_PAYMENT, AMOUNT_MISMATCH] }
+        rail: { $ref: "#/components/schemas/Rail" }
+        amountMinor: { $ref: "#/components/schemas/Money" }
+        studentId: { type: string, format: uuid }
+        providerTransactionId: { type: string }
+        createdAt: { type: string, format: date-time }
+        resolvedBy: { type: string }
+        resolvedAt: { type: string, format: date-time }
+    ResolveInput:
+      type: object
+      required: [studentId]
+      properties:
+        studentId: { type: string, format: uuid }
+        invoiceLineIds: { type: array, maxItems: 50, items: { type: string, format: uuid } }
+    ReconRow:
+      type: object
+      required: [paymentId, rail, status, amountMinor, allocatedMinor, creditMinor, createdAt]
+      properties:
+        paymentId: { type: string, format: uuid }
+        receiptNumber: { type: string }
+        studentId: { type: string, format: uuid }
+        rail: { $ref: "#/components/schemas/Rail" }
+        providerTransactionId: { type: string }
+        status: { $ref: "#/components/schemas/PaymentStatus" }
+        amountMinor: { $ref: "#/components/schemas/Money" }
+        allocatedMinor: { $ref: "#/components/schemas/Money" }
+        creditMinor: { $ref: "#/components/schemas/Money" }
+        createdAt: { type: string, format: date-time }

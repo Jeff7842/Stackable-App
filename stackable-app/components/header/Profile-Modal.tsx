@@ -85,7 +85,7 @@ const ProfileModal = ({ open, onClose, portal }: ProfileModalProps) => {
 
   const name = displayName(me.data);
   const role = formatRole(me.data?.role, portal);
-  const settings = settingsHref(portal);
+  const settings = settingsHref(portal, me.data?.role);
 
   return (
     <div

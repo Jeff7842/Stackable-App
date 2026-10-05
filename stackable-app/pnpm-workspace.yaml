@@ -1,6 +1,0 @@
-# pnpm settings. In pnpm 10 these moved out of package.json into this file.
-# Allow Prisma's install/build scripts to run (they fetch the query engine).
-onlyBuiltDependencies:
-  - prisma
-  - "@prisma/client"
-  - "@prisma/engines"

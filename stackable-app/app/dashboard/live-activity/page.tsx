@@ -1,9 +1,11 @@
-import React from 'react'
+import { ComingSoon } from "@/components/ui";
 
-const page = () => {
+export default function LiveActivityPage() {
   return (
-    <div>page</div>
-  )
+    <ComingSoon
+      title="Live activity"
+      description="Gate, bus and class events as they happen."
+      icon="solar:pulse-linear"
+    />
+  );
 }
-
-export default page

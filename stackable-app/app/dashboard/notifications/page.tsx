@@ -1,9 +1,11 @@
-import React from 'react'
+import { ComingSoon } from "@/components/ui";
 
-const notifications = () => {
+export default function NotificationsPage() {
   return (
-    <div>notifications</div>
-  )
+    <ComingSoon
+      title="Notifications"
+      description="Send and track notices to parents, classes and staff."
+      icon="solar:bell-linear"
+    />
+  );
 }
-
-export default notifications

@@ -16,6 +16,7 @@ import { usePathname } from "next/navigation";
 import type { Ref } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { cn } from "@/lib/cn";
+import { useMe } from "@/hooks/useMe";
 import { activeNavHref, primaryNav } from "@/lib/nav";
 import type { Portal } from "@/lib/validation/shared";
 import { NavIcon } from "@/components/sidebar/sidebar";
@@ -35,8 +36,9 @@ const ITEM =
 
 export function MobileBottomNav({ portal, menuOpen, onOpenMenu, moreRef, inert }: MobileBottomNavProps) {
   const pathname = usePathname();
-  const activeHref = activeNavHref(portal, pathname);
-  const items = primaryNav(portal, 4);
+  const role = useMe().data?.role;
+  const activeHref = activeNavHref(portal, pathname, role);
+  const items = primaryNav(portal, 4, role);
 
   return (
     <nav

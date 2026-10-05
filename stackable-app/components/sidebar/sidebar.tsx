@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/Button";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/lib/cn";
 import { useMe } from "@/hooks/useMe";
-import { NAV, PORTAL_HOME, PORTAL_LABEL, activeNavHref } from "@/lib/nav";
+import { PORTAL_HOME, PORTAL_LABEL, activeNavHref, navFor } from "@/lib/nav";
 import type { Portal } from "@/lib/validation/shared";
 import { useTransitionsReady } from "@/components/dashboard/hooks";
 import { useLogout } from "@/components/dashboard/useLogout";
@@ -46,6 +46,8 @@ export type SidebarChild = {
   label: string;
   /** Page title when it differs from the row label ("All students" -> "Students"). */
   title?: string;
+  /** Page exists but is not built yet; shows a "Soon" tag. */
+  soon?: boolean;
 };
 
 export type SidebarLeafItem = {
@@ -63,6 +65,8 @@ export type SidebarLeafItem = {
   keywords?: string[];
   /** Shows a pulsing "live" status dot. */
   live?: boolean;
+  /** Page exists but is not built yet; shows a "Soon" tag. */
+  soon?: boolean;
 };
 
 export type SidebarGroupItem = {
@@ -74,6 +78,7 @@ export type SidebarGroupItem = {
   primary?: boolean;
   keywords?: string[];
   live?: boolean;
+  soon?: boolean;
 };
 
 export type SidebarItem = SidebarLeafItem | SidebarGroupItem;
@@ -84,6 +89,8 @@ export type SidebarSection = {
   key: string;
   /** Visible section heading ("People"). Optional. */
   label?: string;
+  /** When set, only these roles see the section (used by the shared /staff portal). */
+  roles?: readonly string[];
 };
 
 type SidebarProps = {
@@ -127,6 +134,15 @@ function LiveDot() {
     <span aria-hidden="true" className="relative ml-auto inline-flex size-2 shrink-0">
       <span className="absolute inset-0 rounded-full bg-success animate-pulse-dot" />
       <span className="relative size-2 rounded-full bg-success" />
+    </span>
+  );
+}
+
+/** Small tag for pages that are planned but not built. */
+function SoonTag() {
+  return (
+    <span className="ml-auto shrink-0 rounded-full bg-recessed px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+      Soon
     </span>
   );
 }
@@ -175,6 +191,7 @@ function SidebarLink({
       <NavIcon icon={item.icon} active={active} />
       {collapsed ? null : <span className="truncate">{item.label}</span>}
       {item.live && !collapsed ? <LiveDot /> : null}
+      {item.soon && !collapsed ? <SoonTag /> : null}
     </Link>
   );
 }
@@ -230,12 +247,13 @@ function SidebarGroup({
           <>
             <span className="truncate">{item.label}</span>
             {item.live ? <LiveDot /> : null}
+            {item.soon ? <SoonTag /> : null}
             <Icon
               icon="solar:alt-arrow-down-linear"
               width={16}
               className={cn(
                 "shrink-0 text-muted transition-transform duration-300 ease-standard",
-                item.live ? "ml-1" : "ml-auto",
+                item.live || item.soon ? "ml-1" : "ml-auto",
                 showOpen && "rotate-180",
               )}
             />
@@ -277,6 +295,7 @@ function SidebarGroup({
                       )}
                     />
                     <span className="truncate">{child.label}</span>
+                    {child.soon ? <SoonTag /> : null}
                   </Link>
                 </li>
               );
@@ -352,8 +371,9 @@ export default function Sidebar({
   onToggleCollapse,
 }: SidebarProps) {
   const pathname = usePathname();
-  const sections = NAV[portal];
-  const activeHref = activeNavHref(portal, pathname);
+  const role = useMe().data?.role;
+  const sections = navFor(portal, role);
+  const activeHref = activeNavHref(portal, pathname, role);
   const transitionsReady = useTransitionsReady();
   const { logout, pending: loggingOut } = useLogout();
 

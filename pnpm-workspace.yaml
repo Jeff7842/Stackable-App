@@ -1,0 +1,10 @@
+packages:
+  - stackable-app
+  - packages/*
+  - services/*
+
+# pnpm 10 keeps build-script permissions here; Prisma needs them to fetch its engine.
+onlyBuiltDependencies:
+  - prisma
+  - "@prisma/client"
+  - "@prisma/engines"

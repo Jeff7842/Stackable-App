@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
 export default function StaffPage() {
-    return (
-        <div>
-            <h1>Staff Dashboard</h1>
-        </div>
-    );
+  return (
+    <ComingSoon
+      title="Staff"
+      description="Non-teaching and teaching staff records."
+      icon="solar:case-round-linear"
+    />
+  );
 }

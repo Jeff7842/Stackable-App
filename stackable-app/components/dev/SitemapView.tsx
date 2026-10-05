@@ -16,7 +16,7 @@ import type { Portal } from "@/lib/validation/shared";
 import { DevCard } from "./DevCard";
 import { DevIntro } from "./DevIntro";
 
-const PORTAL_ORDER: Portal[] = ["developer", "dashboard", "principal", "teacher", "student", "parent"];
+const PORTAL_ORDER: Portal[] = ["developer", "dashboard", "principal", "teacher", "staff", "student", "parent"];
 
 // A small accent per portal so the eye can jump straight to one section.
 const PORTAL_ACCENT: Record<Portal, string> = {
@@ -24,6 +24,7 @@ const PORTAL_ACCENT: Record<Portal, string> = {
   dashboard: "bg-accent-tint text-accent-foreground",
   principal: "bg-accent-tint text-accent-foreground",
   teacher: "bg-info-tint text-info",
+  staff: "bg-info-tint text-info",
   student: "bg-success-tint text-success",
   parent: "bg-warning-tint text-warning",
 };
@@ -33,6 +34,7 @@ const PORTAL_ICON: Record<Portal, string> = {
   dashboard: "solar:buildings-2-linear",
   principal: "solar:buildings-2-linear",
   teacher: "solar:users-group-two-rounded-linear",
+  staff: "solar:case-round-linear",
   student: "solar:square-academic-cap-linear",
   parent: "solar:user-hands-linear",
 };

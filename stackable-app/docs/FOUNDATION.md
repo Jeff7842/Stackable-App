@@ -1,3 +1,8 @@
+> **Historical migration log.**
+> This file records the early move from Supabase to Prisma, Neon and Better Auth.
+> It is stale. Do not treat it as current.
+> Current docs: [CHANGELOG.md](CHANGELOG.md), [DECISIONS/](DECISIONS/), [CONNECTIONS.md](CONNECTIONS.md), [WARNINGS.md](WARNINGS.md), [DELETIONS.md](DELETIONS.md), [RESOURCES.md](RESOURCES.md), [OPEN-QUESTIONS.md](OPEN-QUESTIONS.md), [HANDOFF.md](HANDOFF.md), [RUNBOOK.md](RUNBOOK.md).
+
 # Foundation setup — what's here and what's next
 
 This page explains, in plain words, the new "plumbing" we added so the app can

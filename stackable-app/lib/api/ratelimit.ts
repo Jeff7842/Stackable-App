@@ -7,7 +7,7 @@
 
 import { Ratelimit } from "@upstash/ratelimit";
 import { getRedis } from "./redis";
-import { tooManyRequests } from "./errors";
+import { ApiError, serviceUnavailable, tooManyRequests } from "./errors";
 
 export type RateLimitKind = "auth" | "mutation" | "read";
 
@@ -48,4 +48,18 @@ export async function enforceRateLimit(
 ): Promise<void> {
   const { success } = await getLimiter(kind).limit(identifier);
   if (!success) throw tooManyRequests();
+}
+
+/**
+ * Like enforceRateLimit, but a Redis outage is skipped outside production.
+ * In production it fails closed (503), so abuse protection is never silently off.
+ */
+export async function rateLimitOrSkip(kind: RateLimitKind, identifier: string): Promise<void> {
+  try {
+    await enforceRateLimit(kind, identifier);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    if (process.env.NODE_ENV === "production") throw serviceUnavailable();
+    console.warn(`[ratelimit] skipped (${kind}):`, (err as Error).message);
+  }
 }

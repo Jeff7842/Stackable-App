@@ -1,20 +1,25 @@
 // =============================================================================
 // Environment variables — checked, not guessed.
 // -----------------------------------------------------------------------------
-// This file makes sure the secret settings the app needs (database URL, auth
-// secret, Redis, R2...) actually exist and look right. If one is missing, we
-// throw a clear error instead of a confusing crash deep in the app.
-//
-// It is LAZY on purpose: nothing is checked until you call getServerEnv(). That
-// way the app keeps running during the migration while we add the new values.
+// Call getServerEnv() from server code to get a clear error listing every
+// missing or malformed setting. Nothing is checked until it is called.
+// Redis and R2 are optional outside production; production requires them.
 // =============================================================================
 
 import { z } from "zod";
+
+const isProd = process.env.NODE_ENV === "production";
+// Required in production, optional elsewhere.
+const prodOnly = <T extends z.ZodTypeAny>(schema: T) => (isProd ? schema : schema.optional());
 
 const serverEnvSchema = z.object({
   // Database (Prisma)
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().min(1).optional(),
+
+  // Secrets that gate auth and security codes (never have a fallback)
+  OTP_HASH_SECRET: z.string().min(1),
+  SCHOOL_SECURITY_CODES_SECRET: z.string().min(1),
 
   // Better Auth
   BETTER_AUTH_SECRET: z.string().min(1),
@@ -22,17 +27,17 @@ const serverEnvSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
 
-  // Upstash Redis
-  UPSTASH_REDIS_REST_URL: z.string().url(),
-  UPSTASH_REDIS_REST_TOKEN: z.string().min(1),
+  // Upstash Redis (rate limits fail closed in production)
+  UPSTASH_REDIS_REST_URL: prodOnly(z.string().url()),
+  UPSTASH_REDIS_REST_TOKEN: prodOnly(z.string().min(1)),
 
   // Cloudflare R2
-  R2_ENDPOINT: z.string().url(),
-  R2_ACCESS_KEY_ID: z.string().min(1),
-  R2_SECRET_ACCESS_KEY: z.string().min(1),
-  R2_BUCKET_PUBLIC: z.string().min(1),
-  R2_BUCKET_PRIVATE: z.string().min(1),
-  R2_PUBLIC_BASE_URL: z.string().url(),
+  R2_ENDPOINT: prodOnly(z.string().url()),
+  R2_ACCESS_KEY_ID: prodOnly(z.string().min(1)),
+  R2_SECRET_ACCESS_KEY: prodOnly(z.string().min(1)),
+  R2_BUCKET_PUBLIC: prodOnly(z.string().min(1)),
+  R2_BUCKET_PRIVATE: prodOnly(z.string().min(1)),
+  R2_PUBLIC_BASE_URL: prodOnly(z.string().url()),
 });
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>;
@@ -41,8 +46,7 @@ let cached: ServerEnv | null = null;
 
 /**
  * Read and validate the server environment variables.
- * Call this from server-only code (API routes, repositories). It throws a clear
- * error listing exactly which variables are missing or malformed.
+ * Throws a clear error listing exactly which variables are missing or malformed.
  */
 export function getServerEnv(): ServerEnv {
   if (cached) return cached;

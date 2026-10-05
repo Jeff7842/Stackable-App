@@ -45,6 +45,7 @@ const PORTAL_HOME: Record<Portal, string> = {
   principal: "/admin",
   dashboard: "/dashboard",
   teacher: "/teach",
+  staff: "/staff",
   student: "/learn",
   parent: "/family",
 };

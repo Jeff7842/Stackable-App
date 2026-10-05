@@ -1,8 +1,11 @@
+import { ComingSoon } from "@/components/ui";
 
 export default function LoadAllocationPage() {
-    return (
-        <div>
-            <h1>Load Allocation</h1>
-        </div>
-    );
+  return (
+    <ComingSoon
+      title="Load allocation"
+      description="Teaching load by teacher, subject and class."
+      icon="solar:users-group-two-rounded-linear"
+    />
+  );
 }
