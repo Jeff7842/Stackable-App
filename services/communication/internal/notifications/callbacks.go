@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
 // SignatureVerifier checks that a provider callback really came from the provider.

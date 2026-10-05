@@ -13,7 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stackable/communication/internal/delivery"
 	"github.com/stackable/communication/internal/notifications"
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
 const (

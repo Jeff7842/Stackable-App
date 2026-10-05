@@ -1,4 +1,4 @@
-module github.com/stackable/go-kit
+module github.com/stackable/kyfaru-kit
 
 go 1.25.0
 

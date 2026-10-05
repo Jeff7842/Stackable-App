@@ -9,7 +9,7 @@ import (
 	"syscall"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 	"github.com/stackable/payments/internal/fees"
 	"github.com/stackable/payments/internal/provider"
 )

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
 const (

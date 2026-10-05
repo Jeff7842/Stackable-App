@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
 const maxWebhookBytes = 1 << 20 // 1 MiB cap on provider callbacks

@@ -27,7 +27,7 @@ Details: [CHANGELOG.md](CHANGELOG.md).
 Per the D1 plan, other agents are working on:
 - `packages/service-kit` and `packages/contracts`.
 - `services/identity` (TypeScript template).
-- `packages/go-kit` and the Go `services/payments` skeleton.
+- `packages/kyfaru-kit` and the Go `services/payments` skeleton.
 - Database fixes H5, H6, H7 and RLS.
 
 Their status is not recorded in this file yet.

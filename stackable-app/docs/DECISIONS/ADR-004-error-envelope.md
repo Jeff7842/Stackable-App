@@ -43,4 +43,4 @@ Renaming `error` to `message` breaks every caller for no gain.
 
 - New services (Go and TypeScript) must emit the same shape so the gateway handles one envelope.
 - Stable codes in use today: `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `BAD_REQUEST`, `RATE_LIMITED`, `UNAVAILABLE`, `INTERNAL`.
-- Open: whether `service-kit` and `go-kit` mirror `error` or the plan's `message`. Decide before the first contract is published.
+- Open: whether `service-kit` and `kyfaru-kit` mirror `error` or the plan's `message`. Decide before the first contract is published.

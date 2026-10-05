@@ -23,7 +23,7 @@ Each states what blocks on it.
 
 8. **Security code regeneration (H21).** Decide the data model for a version counter before building "regenerate".
 9. **Role mapping (H3).** How do the SDD's 9 roles map onto the repo's 8? Source not read in this change.
-10. **Error envelope in new services.** [ADR-004](DECISIONS/ADR-004-error-envelope.md) keeps `error`. Confirm `service-kit` and `go-kit` mirror it.
+10. **Error envelope in new services.** [ADR-004](DECISIONS/ADR-004-error-envelope.md) keeps `error`. Confirm `service-kit` and `kyfaru-kit` mirror it.
 11. **`OTP_HASH_SECRET` fallback.** `lib/auth/otp.ts` still falls back to `BETTER_AUTH_SECRET`. `lib/env.ts` requires both. Remove the fallback?
 12. **Why Vitest over Jest.** No reason is recorded in the plan or repo.
 13. **Fail-closed scope.** Production only today. Confirm staging should fail closed too.

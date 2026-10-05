@@ -10,7 +10,7 @@ require (
 	github.com/go-pdf/fpdf v0.9.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/jackc/pgx/v5 v5.11.0
-	github.com/stackable/go-kit v0.0.0
+	github.com/stackable/kyfaru-kit v0.0.0
 	github.com/xuri/excelize/v2 v2.11.0
 )
 
@@ -38,4 +38,4 @@ require (
 	golang.org/x/text v0.38.0 // indirect
 )
 
-replace github.com/stackable/go-kit => ../../packages/go-kit
+replace github.com/stackable/kyfaru-kit => ../../packages/kyfaru-kit

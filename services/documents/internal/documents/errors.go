@@ -3,10 +3,10 @@ package documents
 import (
 	"net/http"
 
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
-// docError builds an AppError with a DOMAIN_CONDITION code that go-kit has no constructor for.
+// docError builds an AppError with a DOMAIN_CONDITION code that kyfaru-kit has no constructor for.
 func docError(status int, code, message string) *kit.AppError {
 	return &kit.AppError{Status: status, Code: code, Message: message}
 }

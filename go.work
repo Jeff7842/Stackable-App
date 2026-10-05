@@ -1,7 +1,7 @@
 go 1.25.0
 
 use (
-	./packages/go-kit
+	./packages/kyfaru-kit
 	./services/communication
 	./services/documents
 	./services/payments

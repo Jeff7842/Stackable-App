@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
 const docCols = `id::text, school_id::text, type, format, params, data_version, object_key, status, render_ms, job_payload, created_at, updated_at`

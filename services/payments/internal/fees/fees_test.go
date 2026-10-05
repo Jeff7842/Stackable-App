@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 	"github.com/stackable/payments/internal/provider"
 )
 

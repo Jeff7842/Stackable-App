@@ -39,7 +39,7 @@ Language and ownership come from [ADR-001](DECISIONS/ADR-001-microservices-with-
 | `attendance` | Go | Device ingest, events, deviation evaluator | planned |
 | `documents` | Go | PDF and Excel renderer, cache, R2 | planned |
 
-Shared packages (all planned): `packages/contracts`, `packages/db`, `packages/observability`, `packages/service-kit`, `packages/go-kit`.
+Shared packages (all planned): `packages/contracts`, `packages/db`, `packages/observability`, `packages/service-kit`, `packages/kyfaru-kit`.
 
 ## Planned links between services
 

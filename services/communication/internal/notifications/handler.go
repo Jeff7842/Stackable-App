@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	kit "github.com/stackable/go-kit"
+	kit "github.com/stackable/kyfaru-kit"
 )
 
 const maxCallbackBytes = 1 << 20 // 1 MiB, same cap as every other body
