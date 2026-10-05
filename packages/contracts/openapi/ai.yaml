@@ -1,0 +1,244 @@
+openapi: 3.1.0
+info:
+  title: Stackable AI Service
+  version: 0.1.0
+  description: AI tutor hints, the answer gate, practice sets, usage counts and study tools. Provider is fake until Groq is configured.
+paths:
+  /v1/tutor/hint:
+    post:
+      operationId: requestHint
+      summary: Give one hint, or lock the question when the hint cap would be passed
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HintRequest" }
+      responses:
+        "200":
+          description: The hint and the new gate state
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HintResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+  /v1/tutor/practice:
+    post:
+      operationId: createPractice
+      summary: Generate and open the practice set for a helped question (answer keys stay on the server)
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PracticeRequest" }
+      responses:
+        "200":
+          description: The practice items without their keys
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PracticeResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+  /v1/gate/answer:
+    post:
+      operationId: submitGateAnswer
+      summary: Apply a submission result to the gate; `correct` is accepted from teacher and system tokens only
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GateAnswerRequest" }
+      responses:
+        "200":
+          description: The new state, whether later content stays locked, and any points awarded
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GateAnswerResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /v1/usage/summary:
+    get:
+      operationId: getUsageSummary
+      summary: Counts only (no message content) for a parent or teacher
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: studentId, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Usage counts and points
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UsageSummary" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /v1/tools/{kind}:
+    post:
+      operationId: runStudyTool
+      summary: Flashcards, summary or quiz as structured JSON; always flagged AI-generated and needing teacher review
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [flashcards, summary, quiz] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ToolRequest" }
+      responses:
+        "200":
+          description: Generated content
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ToolResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+components:
+  securitySchemes:
+    serviceToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  responses:
+    Error:
+      description: Standard error envelope
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ErrorEnvelope" }
+  schemas:
+    GateState:
+      description: Answer gate state (SDD P2-12)
+      oneOf:
+        - { type: object, required: [kind], properties: { kind: { const: OPEN } } }
+        - type: object
+          required: [kind, hints]
+          properties: { kind: { const: ASSISTED }, hints: { type: integer, minimum: 1 } }
+        - { type: object, required: [kind], properties: { kind: { const: PRACTICE_REQUIRED } } }
+        - type: object
+          required: [kind, done, hints]
+          properties:
+            kind: { const: PRACTICE_OPEN }
+            done: { type: integer, minimum: 0 }
+            hints: { type: integer, minimum: 0 }
+        - type: object
+          required: [kind, unaided]
+          properties: { kind: { const: DONE }, unaided: { type: boolean } }
+        - { type: object, required: [kind], properties: { kind: { const: LOCKED_REDO } } }
+    Allowance:
+      type: object
+      required: [status, limit, remaining]
+      properties:
+        status: { type: string, enum: [AVAILABLE, EXHAUSTED] }
+        limit: { type: integer }
+        remaining: { type: integer }
+    HintRequest:
+      type: object
+      required: [questionId, questionText]
+      properties:
+        questionId: { type: string, maxLength: 100 }
+        questionText: { type: string, maxLength: 4000 }
+        answerState: { type: string, enum: [UNANSWERED, WRONG], default: UNANSWERED }
+        helpsUsed: { type: integer, minimum: 0, description: Context only; the server counts hints itself }
+        studentMessage: { type: string, maxLength: 2000 }
+        studentId: { type: string, description: Teacher and system tokens only }
+        answerKey:
+          type: string
+          maxLength: 500
+          description: Teacher and system tokens only; used for the leak check, never stored or returned
+    HintResponse:
+      type: object
+      required: [hint, state, locked, allowance, leakFlagged]
+      properties:
+        hint: { type: [string, "null"], description: Null when the question is now locked }
+        state: { $ref: "#/components/schemas/GateState" }
+        locked: { type: boolean }
+        allowance: { oneOf: [{ $ref: "#/components/schemas/Allowance" }, { type: "null" }] }
+        leakFlagged: { type: boolean, description: True when the first provider reply leaked and was replaced }
+    PracticeRequest:
+      type: object
+      required: [questionId, questionText]
+      properties:
+        questionId: { type: string, maxLength: 100 }
+        questionText: { type: string, maxLength: 4000 }
+        difficulty: { type: integer, minimum: 1, maximum: 5, default: 3 }
+        studentId: { type: string }
+    PracticeResponse:
+      type: object
+      required: [items, state, locked]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, position, question, difficulty]
+            properties:
+              id: { type: string }
+              position: { type: integer }
+              question: { type: string }
+              difficulty: { type: integer, minimum: 1, maximum: 5 }
+        state: { $ref: "#/components/schemas/GateState" }
+        locked: { type: boolean }
+    GateAnswerRequest:
+      type: object
+      required: [questionId]
+      properties:
+        questionId: { type: string, maxLength: 100 }
+        correct: { type: boolean, description: Verdict from the grading service; teacher and system tokens only }
+        practiceAnswer: { type: string, maxLength: 500, description: Required while the state is PRACTICE_OPEN }
+        studentId: { type: string }
+    GateAnswerResponse:
+      type: object
+      required: [state, locked, correct, pointsAwarded]
+      properties:
+        state: { $ref: "#/components/schemas/GateState" }
+        locked: { type: boolean }
+        correct: { type: boolean }
+        pointsAwarded: { type: integer }
+    UsageSummary:
+      type: object
+      required: [studentId, questionsHelped, hintsUsed, practiceDone, points]
+      properties:
+        studentId: { type: string }
+        questionsHelped: { type: integer }
+        hintsUsed: { type: integer }
+        practiceDone: { type: integer }
+        points: { type: integer }
+    ToolRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, maxLength: 8000 }
+        count: { type: integer, minimum: 1, maximum: 20, default: 5 }
+        studentId: { type: string }
+    ToolResponse:
+      type: object
+      required: [kind, aiGenerated, needsTeacherReview, content]
+      properties:
+        kind: { type: string, enum: [flashcards, summary, quiz] }
+        aiGenerated: { const: true }
+        needsTeacherReview: { const: true }
+        content:
+          description: Flashcards [{front, back}], a summary {summary, keyPoints}, or quiz questions [{question, options, answerIndex?}] (answerIndex for teacher and system tokens only)
+    ErrorEnvelope:
+      type: object
+      required: [error, code, details, requestId]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        details: { type: object, additionalProperties: true }
+        requestId: { type: string }

@@ -29,8 +29,8 @@ func (f FakeVerifier) Verify(string, map[string]string, []byte) error {
 // parsers turn each provider's callback body into a CallbackEvent; an empty status means "not a final report".
 // Headers are lower-cased by the handler.
 var parsers = map[string]func(headers map[string]string, body []byte) (CallbackEvent, error){
-	"fake":          parseFake,
-	"resend":        parseResend,
+	"fake":           parseFake,
+	"resend":         parseResend,
 	"africastalking": parseAfricasTalking,
 }
 

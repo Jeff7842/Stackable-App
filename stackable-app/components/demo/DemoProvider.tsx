@@ -76,7 +76,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
 
 function DemoPill() {
   return (
-    <div className="fixed bottom-4 left-4 z-[60] flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-canvas shadow-pop">
+    <div className="fixed bottom-4 right-4 z-[60] flex items-center gap-2 rounded-full bg-ink px-3 py-1.5 text-xs font-medium text-canvas shadow-pop">
       <span>Demo mode: changes last only for this session</span>
       <button
         type="button"
